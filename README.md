@@ -4,12 +4,6 @@ This repository conatins patchwork that can be used with Cyanogenmod 14 / Nougat
 
 Each folder name matches the folder in AOSP tree, where the patches are to be applied;
 
-# android_build  
-
-* optional_automated_build_cutom_key_signing_N.patch
-
-more info here: https://github.com/nine7nine/android_build
-
 # packages_apps_settings  
 
 * 0-app_settings_random_mac-toggle_N.patch 
@@ -63,3 +57,8 @@ drops, etc.
 A script used to apply the patches from within the kernel sources. each patch is echoed as a number, so that if a patch breaks; 
 it will be easy to tell which one failed to apply. This is helpful when rebasing conflicts that may occur due to new commits.
 
+# android_build  
+
+* optional_automated_build_cutom_key_signing_N.patch
+
+more info here: https://github.com/nine7nine/android_build
