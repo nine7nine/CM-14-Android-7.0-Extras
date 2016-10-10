@@ -1,0 +1,218 @@
+diff -Nur -X dontdiff a/arch/arm/mach-msm/ext-buck-control.c b/arch/arm/mach-msm/ext-buck-control.c
+--- a/arch/arm/mach-msm/ext-buck-control.c	2016-06-05 20:17:58.570092889 -0400
++++ b/arch/arm/mach-msm/ext-buck-control.c	2016-06-05 20:03:59.334296233 -0400
+@@ -100,7 +100,7 @@
+ 	return ret;
+ }
+ 
+-static struct of_device_id msm_ext_buck_table[] __initdata = {
++static struct of_device_id msm_ext_buck_table[] = {
+ 	{.compatible = "qcom,ext-buck-control"},
+ 	{},
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/gdsc.c b/arch/arm/mach-msm/gdsc.c
+--- a/arch/arm/mach-msm/gdsc.c	2016-06-05 20:17:58.570092889 -0400
++++ b/arch/arm/mach-msm/gdsc.c	2016-06-05 19:52:33.473673892 -0400
+@@ -146,7 +146,7 @@
+ 
+ static int __devinit gdsc_probe(struct platform_device *pdev)
+ {
+-	static atomic_t gdsc_count __initdata = ATOMIC_INIT(-1);
++	static atomic_t gdsc_count = ATOMIC_INIT(-1);
+ 	struct regulator_init_data *init_data;
+ 	struct resource *res;
+ 	struct gdsc *sc;
+@@ -274,7 +274,7 @@
+ 	return 0;
+ }
+ 
+-static struct of_device_id gdsc_match_table[] __initdata = {
++static struct of_device_id gdsc_match_table[] = {
+ 	{ .compatible = "qcom,gdsc" },
+ 	{}
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/krait-regulator.c b/arch/arm/mach-msm/krait-regulator.c
+--- a/arch/arm/mach-msm/krait-regulator.c	2016-06-05 20:17:58.582093122 -0400
++++ b/arch/arm/mach-msm/krait-regulator.c	2016-06-05 19:54:32.831028433 -0400
+@@ -1427,7 +1427,7 @@
+ 	return 0;
+ }
+ 
+-static struct of_device_id krait_power_match_table[] __initdata = {
++static struct of_device_id krait_power_match_table[] = {
+ 	{ .compatible = "qcom,krait-regulator", },
+ 	{}
+ };
+@@ -1442,7 +1442,7 @@
+ 	},
+ };
+ 
+-static struct of_device_id krait_pdn_match_table[] __initdata = {
++static struct of_device_id krait_pdn_match_table[] = {
+ 	{ .compatible = "qcom,krait-pdn", },
+ 	{}
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/krait-regulator-pmic.c b/arch/arm/mach-msm/krait-regulator-pmic.c
+--- a/arch/arm/mach-msm/krait-regulator-pmic.c	2016-06-05 20:17:58.582093122 -0400
++++ b/arch/arm/mach-msm/krait-regulator-pmic.c	2016-06-05 19:56:57.895901706 -0400
+@@ -72,7 +72,7 @@
+ 
+ static struct krait_vreg_pmic_chip *the_chip;
+ 
+-static struct of_device_id krait_vreg_pmic_match_table[] __initdata = {
++static struct of_device_id krait_vreg_pmic_match_table[] = {
+ 	{ .compatible = KRAIT_REG_PMIC_DEV_NAME },
+ 	{}
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/lpm_levels.c b/arch/arm/mach-msm/lpm_levels.c
+--- a/arch/arm/mach-msm/lpm_levels.c	2016-06-05 20:17:58.582093122 -0400
++++ b/arch/arm/mach-msm/lpm_levels.c	2016-06-05 20:07:05.357696953 -0400
+@@ -113,7 +113,7 @@
+ };
+ 
+ static uint32_t allowed_l2_mode;
+-static uint32_t sysfs_dbg_l2_mode __refdata = MSM_SPM_L2_MODE_POWER_COLLAPSE;
++static uint32_t sysfs_dbg_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+ static uint32_t default_l2_mode;
+ 
+ 
+@@ -1149,7 +1149,7 @@
+ 	return -EFAULT;
+ }
+ 
+-static struct of_device_id cpu_modes_mtch_tbl[] __initdata = {
++static struct of_device_id cpu_modes_mtch_tbl[] = {
+ 	{.compatible = "qcom,cpu-modes"},
+ 	{},
+ };
+@@ -1163,7 +1163,7 @@
+ 	},
+ };
+ 
+-static struct of_device_id system_modes_mtch_tbl[] __initdata = {
++static struct of_device_id system_modes_mtch_tbl[] = {
+ 	{.compatible = "qcom,system-modes"},
+ 	{},
+ };
+@@ -1177,7 +1177,7 @@
+ 	},
+ };
+ 
+-static struct of_device_id lpm_levels_match_table[] __initdata = {
++static struct of_device_id lpm_levels_match_table[] = {
+ 	{.compatible = "qcom,lpm-levels"},
+ 	{},
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/msm-pm.c b/arch/arm/mach-msm/msm-pm.c
+--- a/arch/arm/mach-msm/msm-pm.c	2016-06-05 20:17:58.583093141 -0400
++++ b/arch/arm/mach-msm/msm-pm.c	2016-06-05 20:02:11.799149376 -0400
+@@ -60,7 +60,7 @@
+ 
+ #define MAX_BUF_SIZE  512
+ 
+-static int msm_pm_debug_mask __refdata = 1;
++static int msm_pm_debug_mask = 1;
+ module_param_named(
+ 	debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
+ );
+@@ -117,14 +117,14 @@
+ 		"standalone_power_collapse",
+ };
+ 
+-static bool msm_pm_ldo_retention_enabled __refdata = true;
++static bool msm_pm_ldo_retention_enabled = true;
+ static bool msm_no_ramp_down_pc;
+ static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
+ DEFINE_PER_CPU(struct clk *, cpu_clks);
+ static struct clk *l2_clk;
+ 
+ static int cpu_count;
+-static __refdata DEFINE_SPINLOCK(cpu_cnt_lock);
++static DEFINE_SPINLOCK(cpu_cnt_lock);
+ #define SCM_HANDOFF_LOCK_ID "S:7"
+ static bool need_scm_handoff_lock;
+ static remote_spinlock_t scm_handoff_lock;
+@@ -138,7 +138,7 @@
+  * Default the l2 flush flag to OFF so the caches are flushed during power
+  * collapse unless the explicitly voted by lpm driver.
+  */
+-static enum msm_pm_l2_scm_flag msm_pm_flush_l2_flag __refdata = MSM_SCM_L2_OFF;
++static enum msm_pm_l2_scm_flag msm_pm_flush_l2_flag = MSM_SCM_L2_OFF;
+ 
+ void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag)
+ {
+@@ -152,7 +152,7 @@
+ }
+ 
+ static cpumask_t retention_cpus;
+-static __refdata DEFINE_SPINLOCK(retention_lock);
++static DEFINE_SPINLOCK(retention_lock);
+ 
+ static int msm_pm_get_pc_mode(struct device_node *node,
+ 		const char *key, uint32_t *pc_mode_val)
+@@ -1023,7 +1023,7 @@
+ 	return 0;
+ };
+ 
+-static struct of_device_id msm_slp_sts_match_tbl[] __initdata= {
++static struct of_device_id msm_slp_sts_match_tbl[] = {
+ 	{.compatible = "qcom,cpu-sleep-status"},
+ 	{},
+ };
+@@ -1037,7 +1037,7 @@
+ 	},
+ };
+ 
+-static struct of_device_id msm_snoc_clnt_match_tbl[] __initdata = {
++static struct of_device_id msm_snoc_clnt_match_tbl[] = {
+ 	{.compatible = "qcom,pm-snoc-client"},
+ 	{},
+ };
+@@ -1304,7 +1304,7 @@
+ 	return ret;
+ }
+ 
+-static struct of_device_id msm_cpu_pm_table[] __initdata = {
++static struct of_device_id msm_cpu_pm_table[] = {
+ 	{.compatible = "qcom,pm-8x60"},
+ 	{},
+ };
+diff -Nur -X dontdiff a/arch/arm/mach-msm/rpm-smd.c b/arch/arm/mach-msm/rpm-smd.c
+--- a/arch/arm/mach-msm/rpm-smd.c	2016-06-05 20:17:58.597093413 -0400
++++ b/arch/arm/mach-msm/rpm-smd.c	2016-06-05 20:05:42.526189610 -0400
+@@ -73,7 +73,7 @@
+ #define MAX_ERR_BUFFER_SIZE 128
+ #define INIT_ERROR 1
+ 
+-static __refdata ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
++static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
+ static bool standalone;
+ 
+ int msm_rpm_register_notifier(struct notifier_block *nb)
+@@ -314,7 +314,7 @@
+ int msm_rpm_smd_buffer_request(char *buf, uint32_t size, gfp_t flag)
+ {
+ 	struct slp_buf *slp;
+-	static __refdata DEFINE_SPINLOCK(slp_buffer_lock);
++	static DEFINE_SPINLOCK(slp_buffer_lock);
+ 	unsigned long flags;
+ 
+ 	if (size > MAX_SLEEP_BUFFER)
+@@ -452,7 +452,7 @@
+ 	int errno;
+ 	struct completion ack;
+ };
+-__refdata DEFINE_SPINLOCK(msm_rpm_list_lock);
++DEFINE_SPINLOCK(msm_rpm_list_lock);
+ 
+ struct msm_rpm_ack_msg {
+ 	uint32_t req;
+@@ -1407,7 +1407,7 @@
+ 	return ret;
+ }
+ 
+-static struct of_device_id msm_rpm_match_table[] __initdata =  {
++static struct of_device_id msm_rpm_match_table[] =  {
+ 	{.compatible = "qcom,rpm-smd"},
+ 	{},
+ };

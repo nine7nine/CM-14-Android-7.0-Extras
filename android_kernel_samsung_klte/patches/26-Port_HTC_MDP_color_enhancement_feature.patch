@@ -1,0 +1,118 @@
+From 6ca72a965bd8cabcc452893fd206ad38a48b4088 Mon Sep 17 00:00:00 2001
+From: Sultanxda <sultanxda@gmail.com>
+Date: Tue, 6 May 2014 20:05:07 -0700
+Subject: [PATCH] msm_fb: Port HTC MDP color enhancement feature
+
+Ported from HTC One m7-kk-3.4.10-17db3b.
+
+Signed-off-by: Sultanxda <sultanxda@gmail.com>
+
+Conflicts:
+	arch/arm/mach-msm/include/mach/board.h
+
+Change-Id: I424ef1b8be48c4c8ab1d32d2fe441cf402e71d6a
+
+Conflicts:
+	arch/arm/mach-msm/include/mach/board.h
+---
+ arch/arm/mach-msm/include/mach/board.h |  2 ++
+ drivers/video/msm/mdp.c                | 40 ++++++++++++++++++++++++++++++++++
+ drivers/video/msm/mdp.h                |  1 +
+ drivers/video/msm/msm_fb.h             |  1 +
+ 4 files changed, 44 insertions(+)
+
+diff --git a/arch/arm/mach-msm/include/mach/board.h b/arch/arm/mach-msm/include/mach/board.h
+index ca89072..b6b800e 100644
+--- a/arch/arm/mach-msm/include/mach/board.h
++++ b/arch/arm/mach-msm/include/mach/board.h
+@@ -405,6 +405,8 @@
+ 	u32 splash_screen_size;
+ 	char mdp_iommu_split_domain;
+ 	u32 avtimer_phy;
++	int (*mdp_gamma)(void);
++	
+ };
+ 
+ 
+diff --git a/drivers/video/msm/mdp.c b/drivers/video/msm/mdp.c
+index fb34822..1a80904 100644
+--- a/drivers/video/msm/mdp.c
++++ b/drivers/video/msm/mdp.c
+@@ -2309,6 +2310,9 @@ static int mdp_on(struct platform_device *pdev)
+ 
+ 	mdp_histogram_ctrl_all(TRUE);
+ 
++  if (mdp_pdata->mdp_gamma)
++    mdp_pdata->mdp_gamma();
++
+ 	if (ret == 0)
+ 		ret = panel_next_late_init(pdev);
+ 
+@@ -2601,6 +2605,42 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
+ 	return 0;
+ }
+ 
++static int mdp_write_reg_mask(uint32_t reg, uint32_t val, uint32_t mask)
++{
++        uint32_t oldval, newval;
++
++        oldval = inpdw(MDP_BASE + reg);
++
++        oldval &= (~mask);
++        val &= mask;
++        newval = oldval | val;
++
++        outpdw(MDP_BASE + reg, newval);
++
++        return 0;
++
++}
++
++void mdp_color_enhancement(const struct mdp_table_entry *reg_seq, int size)
++{
++        int i;
++
++        printk(KERN_INFO "%s\n", __func__);
++
++        mdp_clk_ctrl(1);
++        mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
++        for (i = 0; i < size; i++) {
++                if (reg_seq[i].mask == 0x0)
++                        outpdw(MDP_BASE + reg_seq[i].reg, reg_seq[i].val);
++                else
++                        mdp_write_reg_mask(reg_seq[i].reg, reg_seq[i].val, reg_seq[i].mask);
++        }
++        mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
++        mdp_clk_ctrl(0);
++
++        return ;
++}
++
+ static int mdp_probe(struct platform_device *pdev)
+ {
+ 	struct platform_device *msm_fb_dev = NULL;
+diff --git a/drivers/video/msm/mdp.h b/drivers/video/msm/mdp.h
+index a94acea..5e5ffc8 100644
+--- a/drivers/video/msm/mdp.h
++++ b/drivers/video/msm/mdp.h
+@@ -84,6 +84,7 @@ struct mdp_buf_type {
+ struct mdp_table_entry {
+ 	uint32_t reg;
+ 	uint32_t val;
++	uint32_t mask;
+ };
+ 
+ extern struct mdp_ccs mdp_ccs_yuv2rgb ;
+diff --git a/drivers/video/msm/msm_fb.h b/drivers/video/msm/msm_fb.h
+index e9ec138..d422772 100644
+--- a/drivers/video/msm/msm_fb.h
++++ b/drivers/video/msm/msm_fb.h
+@@ -247,6 +247,7 @@ void msm_fb_release_busy(struct msm_fb_data_type *mfd);
+ #ifdef CONFIG_FB_BACKLIGHT
+ void msm_fb_config_backlight(struct msm_fb_data_type *mfd);
+ #endif
++void mdp_color_enhancement(const struct mdp_table_entry *reg_seq, int size);
+ 
+ void fill_black_screen(bool on, uint8 pipe_num, uint8 mixer_num);
+ int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
+

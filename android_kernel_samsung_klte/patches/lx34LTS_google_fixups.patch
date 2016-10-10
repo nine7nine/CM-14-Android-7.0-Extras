@@ -1,0 +1,804 @@
+diff -Nur -X dontdiff a/arch/arm/include/asm/elf.h b/arch/arm/include/asm/elf.h
+--- a/arch/arm/include/asm/elf.h	2016-06-08 15:10:41.197770000 -0400
++++ b/arch/arm/include/asm/elf.h	2016-06-09 14:10:56.179167759 -0400
+@@ -116,7 +116,7 @@
+    the loader.  We need to make sure that it is out of the way of the program
+    that it will "exec", and that there is sufficient room for the brk.  */
+ 
+-#define ELF_ET_DYN_BASE	(2 * TASK_SIZE / 3)
++#define ELF_ET_DYN_BASE	(TASK_SIZE / 3 * 2)
+ 
+ /* When the program starts, a1 contains a pointer to a function to be 
+    registered with atexit, as per the SVR4 ABI.  A value of 0 means we 
+diff -Nur -X dontdiff a/arch/arm/include/asm/uaccess.h b/arch/arm/include/asm/uaccess.h
+--- a/arch/arm/include/asm/uaccess.h	2016-06-08 15:10:41.201770000 -0400
++++ b/arch/arm/include/asm/uaccess.h	2016-06-09 14:10:56.179167759 -0400
+@@ -158,8 +158,9 @@
+ #define put_user(x,p)							\
+ 	({								\
+ 		unsigned long __limit = current_thread_info()->addr_limit - 1; \
++		const typeof(*(p)) __user *__tmp_p = (p);		\
+ 		register const typeof(*(p)) __r2 asm("r2") = (x);	\
+-		register const typeof(*(p)) __user *__p asm("r0") = (p);\
++		register const typeof(*(p)) __user *__p asm("r0") = __tmp_p; \
+ 		register unsigned long __l asm("r1") = __limit;		\
+ 		register int __e asm("r0");				\
+ 		switch (sizeof(*(__p))) {				\
+diff -Nur -X dontdiff a/arch/arm/kernel/entry-header.S b/arch/arm/kernel/entry-header.S
+--- a/arch/arm/kernel/entry-header.S	2016-06-08 15:10:41.203770000 -0400
++++ b/arch/arm/kernel/entry-header.S	2016-06-09 14:10:56.180167778 -0400
+@@ -76,26 +76,21 @@
+ #ifndef CONFIG_THUMB2_KERNEL
+ 	.macro	svc_exit, rpsr
+ 	msr	spsr_cxsf, \rpsr
+-#if defined(CONFIG_CPU_V6)
+-	ldr	r0, [sp]
+-	strex	r1, r2, [sp]			@ clear the exclusive monitor
+-	ldmib	sp, {r1 - pc}^			@ load r1 - pc, cpsr
+-#elif defined(CONFIG_CPU_32v6K)
+-	clrex					@ clear the exclusive monitor
+-	ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
+-#else
+-	ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
++#if defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_32v6K)
++	@ We must avoid clrex due to Cortex-A15 erratum #830321
++	sub	r0, sp, #4			@ uninhabited address
++	strex	r1, r2, [r0]			@ clear the exclusive monitor
+ #endif
++	ldmia	sp, {r0 - pc}^			@ load r0 - pc, cpsr
+ 	.endm
+ 
+ 	.macro	restore_user_regs, fast = 0, offset = 0
+ 	ldr	r1, [sp, #\offset + S_PSR]	@ get calling cpsr
+ 	ldr	lr, [sp, #\offset + S_PC]!	@ get pc
+ 	msr	spsr_cxsf, r1			@ save in spsr_svc
+-#if defined(CONFIG_CPU_V6)
++#if defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_32v6K)
++	@ We must avoid clrex due to Cortex-A15 erratum #830321
+ 	strex	r1, r2, [sp]			@ clear the exclusive monitor
+-#elif defined(CONFIG_CPU_32v6K)
+-	clrex					@ clear the exclusive monitor
+ #endif
+ 	.if	\fast
+ 	ldmdb	sp, {r1 - lr}^			@ get calling r1 - lr
+@@ -123,7 +118,10 @@
+ 	.macro	svc_exit, rpsr
+ 	ldr	lr, [sp, #S_SP]			@ top of the stack
+ 	ldrd	r0, r1, [sp, #S_LR]		@ calling lr and pc
+-	clrex					@ clear the exclusive monitor
++
++	@ We must avoid clrex due to Cortex-A15 erratum #830321
++	strex	r2, r1, [sp, #S_LR]		@ clear the exclusive monitor
++
+ 	stmdb	lr!, {r0, r1, \rpsr}		@ calling lr and rfe context
+ 	ldmia	sp, {r0 - r12}
+ 	mov	sp, lr
+@@ -132,13 +130,16 @@
+ 	.endm
+ 
+ 	.macro	restore_user_regs, fast = 0, offset = 0
+-	clrex					@ clear the exclusive monitor
+ 	mov	r2, sp
+ 	load_user_sp_lr r2, r3, \offset + S_SP	@ calling sp, lr
+ 	ldr	r1, [sp, #\offset + S_PSR]	@ get calling cpsr
+ 	ldr	lr, [sp, #\offset + S_PC]	@ get pc
+ 	add	sp, sp, #\offset + S_SP
+ 	msr	spsr_cxsf, r1			@ save in spsr_svc
++
++	@ We must avoid clrex due to Cortex-A15 erratum #830321
++	strex	r1, r2, [sp]			@ clear the exclusive monitor
++
+ 	.if	\fast
+ 	ldmdb	sp, {r1 - r12}			@ get calling r1 - r12
+ 	.else
+diff -Nur -X dontdiff a/arch/arm/kernel/process.c b/arch/arm/kernel/process.c
+--- a/arch/arm/kernel/process.c	2016-06-08 15:10:41.206770000 -0400
++++ b/arch/arm/kernel/process.c	2016-06-09 14:10:56.180167778 -0400
+@@ -662,6 +662,7 @@
+ unsigned long get_wchan(struct task_struct *p)
+ {
+ 	struct stackframe frame;
++	unsigned long stack_page;
+ 	int count = 0;
+ 	if (!p || p == current || p->state == TASK_RUNNING)
+ 		return 0;
+@@ -670,9 +671,11 @@
+ 	frame.sp = thread_saved_sp(p);
+ 	frame.lr = 0;			/* recovered from the stack */
+ 	frame.pc = thread_saved_pc(p);
++	stack_page = (unsigned long)task_stack_page(p);
+ 	do {
+-		int ret = unwind_frame(&frame);
+-		if (ret < 0)
++		if (frame.sp < stack_page ||
++		    frame.sp >= stack_page + THREAD_SIZE ||
++		    unwind_frame(&frame) < 0)
+ 			return 0;
+ 		if (!in_sched_functions(frame.pc))
+ 			return frame.pc;
+diff -Nur -X dontdiff a/arch/arm/kernel/stacktrace.c b/arch/arm/kernel/stacktrace.c
+--- a/arch/arm/kernel/stacktrace.c	2016-06-08 15:10:41.206770000 -0400
++++ b/arch/arm/kernel/stacktrace.c	2016-06-09 14:10:56.180167778 -0400
+@@ -31,7 +31,7 @@
+ 	high = ALIGN(low, THREAD_SIZE);
+ 
+ 	/* check current frame pointer is within bounds */
+-	if (fp < (low + 12) || fp + 4 >= high)
++	if (fp < low + 12 || fp > high - 4)
+ 		return -EINVAL;
+ 
+ 	/* restore the registers from the stack frame */
+diff -Nur -X dontdiff a/arch/arm/kernel/traps.c b/arch/arm/kernel/traps.c
+--- a/arch/arm/kernel/traps.c	2016-06-08 17:07:26.225976000 -0400
++++ b/arch/arm/kernel/traps.c	2016-06-09 14:10:56.180167778 -0400
+@@ -43,7 +43,13 @@
+ 
+ #include <trace/events/exception.h>
+ 
+-static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
++static const char *handler[]= {
++	"prefetch abort",
++	"data abort",
++	"address exception",
++	"interrupt",
++	"undefined instruction",
++};
+ 
+ void *vectors_page;
+ 
+diff -Nur -X dontdiff a/arch/arm/mach-msm/devices-8064.c b/arch/arm/mach-msm/devices-8064.c
+--- a/arch/arm/mach-msm/devices-8064.c	2016-06-08 15:10:41.293772000 -0400
++++ b/arch/arm/mach-msm/devices-8064.c	2016-06-09 14:10:56.180167778 -0400
+@@ -157,7 +157,7 @@
+ 
+ static struct msm_watchdog_pdata msm_watchdog_pdata = {
+ 	.pet_time = 10000,
+-	.bark_time = 11000,
++	.bark_time = 45000,
+ 	.has_secure = true,
+ 	.needs_expired_enable = true,
+ 	.base = MSM_TMR0_BASE + WDT0_OFFSET,
+diff -Nur -X dontdiff a/arch/arm/mach-msm/ipc_socket.c b/arch/arm/mach-msm/ipc_socket.c
+--- a/arch/arm/mach-msm/ipc_socket.c	2016-06-08 15:10:41.307772000 -0400
++++ b/arch/arm/mach-msm/ipc_socket.c	2016-06-09 14:10:56.181167796 -0400
+@@ -513,16 +513,20 @@
+ 			break;
+ 		}
+ 		server_arg.num_entries_found = ret;
+-
+ 		ret = copy_to_user((void *)arg, &server_arg,
+ 				   sizeof(server_arg));
+-		if (srv_info_sz) {
++
++		n = min(server_arg.num_entries_found,
++			server_arg.num_entries_in_array);
++
++		if (ret == 0 && n) {
+ 			ret = copy_to_user((void *)(arg + sizeof(server_arg)),
+-					   srv_info, srv_info_sz);
+-			if (ret)
+-				ret = -EFAULT;
+-			kfree(srv_info);
++					   srv_info, n * sizeof (*srv_info));
+ 		}
++
++		if (ret)
++			ret = -EFAULT;
++		kfree(srv_info);
+ 		break;
+ 
+ 	case IPC_ROUTER_IOCTL_BIND_CONTROL_PORT:
+diff -Nur -X dontdiff a/arch/arm/mach-msm/smd_pkt.c b/arch/arm/mach-msm/smd_pkt.c
+--- a/arch/arm/mach-msm/smd_pkt.c	2016-06-08 15:10:41.326773000 -0400
++++ b/arch/arm/mach-msm/smd_pkt.c	2016-06-09 14:10:56.181167796 -0400
+@@ -811,8 +811,6 @@
+ 	}
+ 	D_STATUS("Begin %s on smd_pkt_dev id:%d\n", __func__, smd_pkt_devp->i);
+ 
+-	file->private_data = smd_pkt_devp;
+-
+ 	mutex_lock(&smd_pkt_devp->ch_lock);
+ 	if (smd_pkt_devp->ch == 0) {
+ 		wake_lock_init(&smd_pkt_devp->pa_wake_lock, WAKE_LOCK_SUSPEND,
+@@ -932,6 +930,8 @@
+ 		platform_driver_unregister(&smd_pkt_devp->driver);
+ 		smd_pkt_devp->driver.probe = NULL;
+ 	}
++	else if (r == 0)
++		file->private_data = smd_pkt_devp;
+ out:
+ 	if (!smd_pkt_devp->ch)
+ 		wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
+diff -Nur -X dontdiff a/arch/arm/Makefile b/arch/arm/Makefile
+--- a/arch/arm/Makefile	2016-06-08 15:50:29.384525000 -0400
++++ b/arch/arm/Makefile	2016-06-09 14:10:56.181167796 -0400
+@@ -49,6 +49,14 @@
+ 
+ comma = ,
+ 
++#
++# The Scalar Replacement of Aggregates (SRA) optimization pass in GCC 4.9 and
++# later may result in code being generated that handles signed short and signed
++# char struct members incorrectly. So disable it.
++# (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65932)
++#
++KBUILD_CFLAGS	+= $(call cc-option,-fno-ipa-sra)
++
+ # This selects which instruction set is used.
+ # Note that GCC does not numerically define an architecture version
+ # macro, but instead defines a whole series of macros which makes
+diff -Nur -X dontdiff a/arch/arm/mm/idmap.c b/arch/arm/mm/idmap.c
+--- a/arch/arm/mm/idmap.c	2016-06-08 15:10:41.395774000 -0400
++++ b/arch/arm/mm/idmap.c	2016-06-09 14:10:56.181167796 -0400
+@@ -22,6 +22,13 @@
+ 			pr_warning("Failed to allocate identity pmd.\n");
+ 			return;
+ 		}
++		/*
++		 * Copy the original PMD to ensure that the PMD entries for
++		 * the kernel image are preserved.
++		 */
++		if (!pud_none(*pud))
++			memcpy(pmd, pmd_offset(pud, 0),
++			       PTRS_PER_PMD * sizeof(pmd_t));
+ 		pud_populate(&init_mm, pud, pmd);
+ 		pmd += pmd_index(addr);
+ 	} else
+diff -Nur -X dontdiff a/arch/arm/mm/proc-v6.S b/arch/arm/mm/proc-v6.S
+--- a/arch/arm/mm/proc-v6.S	2016-06-08 15:10:41.397774000 -0400
++++ b/arch/arm/mm/proc-v6.S	2016-06-09 14:10:56.181167796 -0400
+@@ -208,7 +208,6 @@
+ 	mcr	p15, 0, r0, c7, c14, 0		@ clean+invalidate D cache
+ 	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
+ 	mcr	p15, 0, r0, c7, c15, 0		@ clean+invalidate cache
+-	mcr	p15, 0, r0, c7, c10, 4		@ drain write buffer
+ #ifdef CONFIG_MMU
+ 	mcr	p15, 0, r0, c8, c7, 0		@ invalidate I + D TLBs
+ 	mcr	p15, 0, r0, c2, c0, 2		@ TTB control register
+@@ -218,6 +217,8 @@
+ 	ALT_UP(orr	r8, r8, #TTB_FLAGS_UP)
+ 	mcr	p15, 0, r8, c2, c0, 1		@ load TTB1
+ #endif /* CONFIG_MMU */
++	mcr	p15, 0, r0, c7, c10, 4		@ drain write buffer and
++						@ complete invalidations
+ 	adr	r5, v6_crval
+ 	ldmia	r5, {r5, r6}
+ #ifdef CONFIG_CPU_ENDIAN_BE8
+diff -Nur -X dontdiff a/arch/arm/mm/proc-v7.S b/arch/arm/mm/proc-v7.S
+--- a/arch/arm/mm/proc-v7.S	2016-06-08 15:10:41.397774000 -0400
++++ b/arch/arm/mm/proc-v7.S	2016-06-09 14:10:56.181167796 -0400
+@@ -266,7 +266,6 @@
+ 
+ 3:	mov	r10, #0
+ 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
+-	dsb
+ #ifdef CONFIG_MMU
+ 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs
+ 	v7_ttb_setup r10, r4, r8, r5		@ TTBCR, TTBRx setup
+@@ -275,6 +274,7 @@
+ 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
+ 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
+ #endif
++	dsb					@ Complete invalidations
+ 
+ #if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
+ 	mov     r0, #0x33
+diff -Nur -X dontdiff a/drivers/char/msm_rotator.c b/drivers/char/msm_rotator.c
+--- a/drivers/char/msm_rotator.c	2016-06-08 15:10:41.999786000 -0400
++++ b/drivers/char/msm_rotator.c	2016-06-09 14:34:34.044918014 -0400
+@@ -240,7 +240,7 @@
+ 		rc = 1;
+ #endif
+ 	if (rc == 1) {
+-		cancel_delayed_work(&msm_rotator_dev->imem_clk_work);
++		cancel_delayed_work_sync(&msm_rotator_dev->imem_clk_work);
+ 		if (msm_rotator_dev->imem_clk_state != CLK_EN
+ 			&& msm_rotator_dev->imem_clk) {
+ 			clk_prepare_enable(msm_rotator_dev->imem_clk);
+@@ -1082,7 +1082,7 @@
+ 	if (src_planes.num_planes >= 3)
+ 		in_chroma2_paddr = in_chroma_paddr + src_planes.plane_size[1];
+ 
+-	cancel_delayed_work(&msm_rotator_dev->rot_clk_work);
++	cancel_delayed_work_sync(&msm_rotator_dev->rot_clk_work);
+ 	if (msm_rotator_dev->rot_clk_state != CLK_EN) {
+ 		enable_rot_clks();
+ 		msm_rotator_dev->rot_clk_state = CLK_EN;
+@@ -1384,6 +1384,7 @@
+ 	if (copy_from_user(&session_id, (void __user *)arg, sizeof(s)))
+ 		return -EFAULT;
+ 
++	rot_wait_for_commit_queue(true);
+ 	mutex_lock(&msm_rotator_dev->rotator_lock);
+ 	for (s = 0; s < MAX_SESSIONS; s++) {
+ 		if ((msm_rotator_dev->img_info[s] != NULL) &&
+diff -Nur -X dontdiff a/drivers/video/msm/Kconfig b/drivers/video/msm/Kconfig
+--- a/drivers/video/msm/Kconfig	2016-06-08 15:10:43.333812000 -0400
++++ b/drivers/video/msm/Kconfig	2016-06-09 14:10:56.181167796 -0400
+@@ -45,6 +45,11 @@
+ config FB_MSM_MDSS_COMMON
+ 	bool
+ 
++config MDP_DEBUG_FS
++	depends on DEBUG_FS
++	bool "MDP Debug FS"
++	default n
++
+ choice
+ 	prompt "MDP HW version"
+ 	default FB_MSM_MDP22
+diff -Nur -X dontdiff a/drivers/video/msm/Makefile b/drivers/video/msm/Makefile
+--- a/drivers/video/msm/Makefile	2016-06-08 15:10:43.333812000 -0400
++++ b/drivers/video/msm/Makefile	2016-06-09 14:10:56.181167796 -0400
+@@ -11,8 +11,7 @@
+ ifeq ($(CONFIG_FB_MSM_MDP_HW),y)
+ # MDP
+ obj-y += mdp.o
+-
+-obj-$(CONFIG_DEBUG_FS) += mdp_debugfs.o
++obj-$(CONFIG_MDP_DEBUG_FS) += mdp_debugfs.o
+ 
+ ifeq ($(CONFIG_FB_MSM_MDP40),y)
+ obj-y += mdp4_util.o
+diff -Nur -X dontdiff a/drivers/video/msm/mdp4_overlay.c b/drivers/video/msm/mdp4_overlay.c
+--- a/drivers/video/msm/mdp4_overlay.c	2016-06-08 15:10:43.337812000 -0400
++++ b/drivers/video/msm/mdp4_overlay.c	2016-06-09 14:10:56.182167815 -0400
+@@ -2952,10 +2952,10 @@
+ 		 ib_quota_total, perf_req->mdp_ib_bw);
+ 
+ 	if (ab_quota_total > mdp_max_bw)
+-		pr_warn("%s: req ab bw=%llu is larger than max bw=%llu",
++		pr_debug("%s: req ab bw=%llu is larger than max bw=%llu",
+ 			__func__, ab_quota_total, mdp_max_bw);
+ 	if (ib_quota_total > mdp_max_bw)
+-		pr_warn("%s: req ib bw=%llu is larger than max bw=%llu",
++		pr_debug("%s: req ib bw=%llu is larger than max bw=%llu",
+ 			__func__, ib_quota_total, mdp_max_bw);
+ 
+ 	pr_debug("%s %d: pid %d cnt %d clk %d ov0_blt %d, ov1_blt %d\n",
+diff -Nur -X dontdiff a/drivers/video/msm/mdp.c b/drivers/video/msm/mdp.c
+--- a/drivers/video/msm/mdp.c	2016-06-08 15:15:49.843197000 -0400
++++ b/drivers/video/msm/mdp.c	2016-06-09 14:10:56.182167815 -0400
+@@ -2,7 +2,7 @@
+  *
+  * MSM MDP Interface (used by framebuffer core)
+  *
+- * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2007-2013, 2016 The Linux Foundation. All rights reserved.
+  * Copyright (C) 2007 Google Incorporated
+  *
+  * This software is licensed under the terms of the GNU General Public
+@@ -3296,7 +3296,7 @@
+ 		return ret;
+ 	}
+ 
+-#if defined(CONFIG_DEBUG_FS)
++#if defined(CONFIG_MDP_DEBUG_FS)
+ 	mdp_debugfs_init();
+ #endif
+ 
+diff -Nur -X dontdiff a/drivers/video/msm/mdp_debugfs.c b/drivers/video/msm/mdp_debugfs.c
+--- a/drivers/video/msm/mdp_debugfs.c	2016-06-08 15:10:43.338812000 -0400
++++ b/drivers/video/msm/mdp_debugfs.c	2016-06-09 14:10:56.182167815 -0400
+@@ -1,4 +1,4 @@
+-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
++/* Copyright (c) 2009-2012, 2016 The Linux Foundation. All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 and
+@@ -39,6 +39,9 @@
+ #endif
+ 
+ #define MDP_DEBUG_BUF	2048
++#define MDP_MAX_OFFSET  0xF05FC
++#define MDDI_MAX_OFFSET 0xC
++#define HDMI_MAX_OFFSET 0x59C
+ 
+ static uint32	mdp_offset;
+ static uint32	mdp_count;
+@@ -78,11 +81,18 @@
+ 
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+-	sscanf(debug_buf, "%x %d", &off, &cnt);
++	if (sscanf(debug_buf, "%x %d", &off, &cnt) != 2)
++		return -EFAULT;
+ 
+ 	if (cnt <= 0)
+ 		cnt = 1;
+ 
++	if ((off > MDP_MAX_OFFSET) || (cnt > (MDP_MAX_OFFSET - off))) {
++		printk(KERN_INFO "%s: Invalid offset%x+cnt%d > %x\n", __func__,
++				off, cnt, MDP_MAX_OFFSET);
++		return -EFAULT;
++	}
++
+ 	mdp_offset = off;
+ 	mdp_count = cnt;
+ 
+@@ -154,6 +164,14 @@
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+ 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
++	if (cnt != 2)
++		return -EFAULT;
++
++	if (off > MDP_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset%x > %x\n", __func__,
++					off, MDP_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+ 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+ 	outpdw(MDP_BASE + off, data);
+@@ -620,6 +638,17 @@
+ 	else
+ 		base = (char *)msm_pmdh_base;
+ 
++	if (base == NULL) {
++		printk(KERN_INFO "%s: base offset is not set properly. \
++			Please check if MDDI is enabled correctly\n", __func__);
++		return;
++	}
++
++	if (off > MDDI_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset=%x > %x\n", __func__,
++				off, MDDI_MAX_OFFSET);
++		return;
++	}
+ 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+ 	writel(data, base + off);
+ 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+@@ -682,6 +711,14 @@
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+ 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
++	if (cnt != 2)
++		return -EFAULT;
++
++	if (off > MDDI_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset=%x > %x\n", __func__,
++				off, MDDI_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+ 	mddi_reg_write(0, off, data);
+ 
+@@ -737,6 +774,14 @@
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+ 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
++	if (cnt != 2)
++		return -EFAULT;
++
++	if (off > MDDI_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset=%x > %x\n", __func__,
++				off, MDDI_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+ 	mddi_reg_write(1, off, data);
+ 
+@@ -884,15 +929,18 @@
+ 
+ 	cnt = sscanf(debug_buf, "%x %d %x", &off, &num, &base);
+ 
+-	if (cnt < 0)
+-		cnt = 0;
++	if (cnt != 3)
++		return -EFAULT;
++
++	if ((off > MDP_MAX_OFFSET) || (num > (MDP_MAX_OFFSET - off))) {
++		printk(KERN_INFO "%s: Invalid offset%x+num%d > %x\n", __func__,
++				off, num, MDP_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+-	if (cnt >= 1)
+-		dbg_offset = off;
+-	if (cnt >= 2)
+-		dbg_count = num;
+-	if (cnt >= 3)
+-		dbg_base = (char *)base;
++	dbg_offset = off;
++	dbg_count = num;
++	dbg_base = (char *)base;
+ 
+ 	printk(KERN_INFO "%s: offset=%x cnt=%d base=%x\n", __func__,
+ 				dbg_offset, dbg_count, (int)dbg_base);
+@@ -951,6 +999,14 @@
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+ 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
++	if (cnt != 2)
++		return -EFAULT;
++
++	if (off > MDP_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset%x > %x\n", __func__,
++					off, MDP_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+ 	writel(data, dbg_base + off);
+ 
+@@ -1191,14 +1247,17 @@
+ 	debug_buf[count] = 0;	/* end of string */
+ 
+ 	cnt = sscanf(debug_buf, "%x %d", &off, &num);
++	if (cnt != 2)
++		return -EFAULT;
+ 
+-	if (cnt < 0)
+-		cnt = 0;
++	if ((off > HDMI_MAX_OFFSET) || (num > (HDMI_MAX_OFFSET - off))) {
++		printk(KERN_INFO "%s: Invalid offset%x+num%d > %x\n", __func__,
++				off, num, HDMI_MAX_OFFSET);
++		return -EFAULT;
++	}
+ 
+-	if (cnt >= 1)
+-		hdmi_offset = off;
+-	if (cnt >= 2)
+-		hdmi_count = num;
++	hdmi_offset = off;
++	hdmi_count = num;
+ 
+ 	printk(KERN_INFO "%s: offset=%x cnt=%d\n", __func__,
+ 				hdmi_offset, hdmi_count);
+@@ -1262,6 +1321,15 @@
+ 
+ 	cnt = sscanf(debug_buf, "%x %x", &off, &data);
+ 
++	if (cnt != 1)
++		return -EFAULT;
++
++	if (off > HDMI_MAX_OFFSET) {
++		printk(KERN_INFO "%s: Invalid offset%x > %x\n", __func__,
++				off, HDMI_MAX_OFFSET);
++		return -EFAULT;
++	}
++
+ 	writel(data, base + off);
+ 
+ 	printk(KERN_INFO "%s: addr=%x data=%x\n",
+@@ -1355,14 +1423,14 @@
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("off", 0644, dent, 0, &mdp_off_fops)
++	if (debugfs_create_file("off", 0600, dent, 0, &mdp_off_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: index fail\n",
+ 			__FILE__, __LINE__);
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("reg", 0644, dent, 0, &mdp_reg_fops)
++	if (debugfs_create_file("reg", 0600, dent, 0, &mdp_reg_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+ 			__FILE__, __LINE__);
+@@ -1370,7 +1438,7 @@
+ 	}
+ 
+ #ifdef CONFIG_FB_MSM_MDP40
+-	if (debugfs_create_file("stat", 0644, dent, 0, &mdp_stat_fops)
++	if (debugfs_create_file("stat", 0600, dent, 0, &mdp_stat_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+ 			__FILE__, __LINE__);
+@@ -1378,7 +1446,7 @@
+ 	}
+ #endif
+ 
+-	if (debugfs_create_file("force_ov0_blt", 0644, dent, 0,
++	if (debugfs_create_file("force_ov0_blt", 0600, dent, 0,
+ 				&dbg_force_ov0_blt_fops)
+ 			== NULL) {
+ 		pr_err("%s(%d): debugfs_create_file: debug fail\n",
+@@ -1386,7 +1454,7 @@
+ 		return -EFAULT;
+ 	}
+ 
+-	if (debugfs_create_file("force_ov1_blt", 0644, dent, 0,
++	if (debugfs_create_file("force_ov1_blt", 0600, dent, 0,
+ 				&dbg_force_ov1_blt_fops)
+ 			== NULL) {
+ 		pr_err("%s(%d): debugfs_create_file: debug fail\n",
+@@ -1402,7 +1470,7 @@
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("reg", 0644, dent, 0, &pmdh_fops)
++	if (debugfs_create_file("reg", 0600, dent, 0, &pmdh_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+ 			__FILE__, __LINE__);
+@@ -1417,7 +1485,7 @@
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("reg", 0644, dent, 0, &emdh_fops)
++	if (debugfs_create_file("reg", 0600, dent, 0, &emdh_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+ 			__FILE__, __LINE__);
+@@ -1432,21 +1500,21 @@
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("base", 0644, dent, 0, &dbg_base_fops)
++	if (debugfs_create_file("base", 0600, dent, 0, &dbg_base_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: index fail\n",
+ 			__FILE__, __LINE__);
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("off", 0644, dent, 0, &dbg_off_fops)
++	if (debugfs_create_file("off", 0600, dent, 0, &dbg_off_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: index fail\n",
+ 			__FILE__, __LINE__);
+ 		return -1;
+ 	}
+ 
+-	if (debugfs_create_file("reg", 0644, dent, 0, &dbg_reg_fops)
++	if (debugfs_create_file("reg", 0600, dent, 0, &dbg_reg_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: debug fail\n",
+ 			__FILE__, __LINE__);
+@@ -1462,14 +1530,14 @@
+ 		return PTR_ERR(dent);
+ 	}
+ 
+-	if (debugfs_create_file("off", 0644, dent, 0, &hdmi_off_fops)
++	if (debugfs_create_file("off", 0600, dent, 0, &hdmi_off_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: 'off' fail\n",
+ 			__FILE__, __LINE__);
+ 		return -ENOENT;
+ 	}
+ 
+-	if (debugfs_create_file("reg", 0644, dent, 0, &hdmi_reg_fops)
++	if (debugfs_create_file("reg", 0600, dent, 0, &hdmi_reg_fops)
+ 			== NULL) {
+ 		printk(KERN_ERR "%s(%d): debugfs_create_file: 'reg' fail\n",
+ 			__FILE__, __LINE__);
+diff -Nur -X dontdiff a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl.h b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl.h
+--- a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl.h	2016-06-08 15:10:43.419814000 -0400
++++ b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl.h	2016-06-09 14:10:56.183167834 -0400
+@@ -398,6 +398,8 @@
+ 	struct ddl_mp2_datadumpenabletype mp2_datadump_enable;
+ 	u32 mp2_datadump_status;
+ 	u32 extn_user_data_enable;
++	u32 adaptive_width;
++	u32 adaptive_height;
+ };
+ union ddl_codec_data{
+ 	struct ddl_codec_data_hdr  hdr;
+diff -Nur -X dontdiff a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_helper.c b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_helper.c
+--- a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_helper.c	2016-06-08 15:10:43.420814000 -0400
++++ b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_helper.c	2016-06-09 14:10:56.183167834 -0400
+@@ -1024,6 +1024,8 @@
+ 	if (decoder->cont_mode) {
+ 		if ((decoder->actual_output_buf_req.sz <=
+ 			 decoder->client_output_buf_req.sz) &&
++			 decoder->frame_size.width <= decoder->adaptive_width &&
++			 decoder->frame_size.height <= decoder->adaptive_height &&
+ 			(decoder->actual_output_buf_req.actual_count <=
+ 			 decoder->client_output_buf_req.actual_count)) {
+ 			need_reconfig = false;
+@@ -1063,8 +1065,23 @@
+ void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl)
+ {
+ 	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
++	struct vidc_1080p_dec_disp_info *dec_disp_info =
++		&(decoder->dec_disp_info);
++
++	u32 width = 0;
++	u32 height = 0;
++	u32 adaptive_width = 0;
++	u32 adaptive_height = 0;
++
++	width = DDL_ALIGN(dec_disp_info->img_size_x, DDL_TILE_ALIGN_WIDTH);
++	height = DDL_ALIGN(dec_disp_info->img_size_y, DDL_TILE_ALIGN_HEIGHT);
++
++	adaptive_width = DDL_ALIGN(decoder->adaptive_width, DDL_TILE_ALIGN_WIDTH);
++	adaptive_height = DDL_ALIGN(decoder->adaptive_height, DDL_TILE_ALIGN_HEIGHT);
++
+ 	if ((decoder->cont_mode) &&
+-		(res_change == DDL_RESL_CHANGE_DECREASED)) {
++		(res_change == DDL_RESL_CHANGE_DECREASED) &&
++		width <= adaptive_width && height <= adaptive_height) {
+ 		DDL_MSG_LOW("%s Resolution decreased, continue decoding\n",
+ 				 __func__);
+ 		vidc_sm_get_min_yc_dpb_sizes(
+diff -Nur -X dontdiff a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c
+--- a/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c	2016-06-08 15:10:43.420814000 -0400
++++ b/drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c	2016-06-09 14:10:56.183167834 -0400
+@@ -310,7 +310,11 @@
+ 				ddl_set_default_decoder_buffer_req(decoder,
+ 					true);
+ 			}
+-			DDL_MSG_LOW("set  VCD_I_FRAME_SIZE width = %d"
++			if (decoder->cont_mode) {
++				decoder->adaptive_width = decoder->client_frame_size.width;
++				decoder->adaptive_height = decoder->client_frame_size.height;
++			}
++			DDL_MSG_LOW("set VCD_I_FRAME_SIZE width = %d"
+ 				" height = %d\n",
+ 				frame_size->width, frame_size->height);
+ 			vcd_status = VCD_S_SUCCESS;
+@@ -1971,6 +1975,8 @@
+ 	decoder->output_order = VCD_DEC_ORDER_DISPLAY;
+ 	decoder->field_needed_for_prev_ip = 0;
+ 	decoder->cont_mode = 0;
++	decoder->adaptive_width = 0;
++	decoder->adaptive_height = 0;
+ 	decoder->reconfig_detected = false;
+ 	decoder->dmx_disable = false;
+ 	ddl_set_default_metadata_flag(ddl);
+diff -Nur -X dontdiff a/scripts/dtc/libfdt/fdt_rw.c b/scripts/dtc/libfdt/fdt_rw.c
+--- a/scripts/dtc/libfdt/fdt_rw.c	2016-06-08 15:10:44.316831000 -0400
++++ b/scripts/dtc/libfdt/fdt_rw.c	2016-06-09 14:10:56.183167834 -0400
+@@ -415,20 +415,31 @@
+ 
+ int fdt_open_into(const void *fdt, void *buf, int bufsize)
+ {
+-	int err;
+-	int mem_rsv_size, struct_size;
+-	int newsize;
++	int err = -1;
++	uint32_t mem_rsv_size;
++	int struct_size;
++	uint32_t newsize;
+ 	const char *fdtstart = fdt;
+-	const char *fdtend = fdtstart + fdt_totalsize(fdt);
++	const char *fdtend = NULL;
+ 	char *tmp;
+ 
++	if (fdtstart + fdt_totalsize(fdt) < fdtstart) {
++		return err;
++	}
++	fdtend = fdtstart + fdt_totalsize(fdt);
+ 	FDT_CHECK_HEADER(fdt);
+ 
++	if ((fdt_num_mem_rsv(fdt)+1) > (UINT_MAX / sizeof(struct fdt_reserve_entry)))  {
++		return err;
++	}
++
+ 	mem_rsv_size = (fdt_num_mem_rsv(fdt)+1)
+ 		* sizeof(struct fdt_reserve_entry);
+ 
+ 	if (fdt_version(fdt) >= 17) {
+ 		struct_size = fdt_size_dt_struct(fdt);
++			if (struct_size < 0)
++				return struct_size;
+ 	} else {
+ 		struct_size = 0;
+ 		while (fdt_next_tag(fdt, struct_size, &struct_size) != FDT_END)
+@@ -447,16 +458,22 @@
+ 		fdt_set_totalsize(buf, bufsize);
+ 		return 0;
+ 	}
++	if (((uint64_t)FDT_ALIGN(sizeof(struct fdt_header), 8) + (uint64_t)mem_rsv_size \
++                + (uint64_t)struct_size + (uint64_t)fdt_size_dt_strings(fdt)) > UINT_MAX) {
++		return (err = -1);
++	}
+ 
+ 	/* Need to reorder */
+ 	newsize = FDT_ALIGN(sizeof(struct fdt_header), 8) + mem_rsv_size
+ 		+ struct_size + fdt_size_dt_strings(fdt);
+-
+ 	if (bufsize < newsize)
+ 		return -FDT_ERR_NOSPACE;
+ 
+ 	/* First attempt to build converted tree at beginning of buffer */
+ 	tmp = buf;
++	if (((tmp + newsize) < tmp) || ((buf + bufsize) < buf)) {
++		return (err = -1);
++	}
+ 	/* But if that overlaps with the old tree... */
+ 	if (((tmp + newsize) > fdtstart) && (tmp < fdtend)) {
+ 		/* Try right after the old tree instead */

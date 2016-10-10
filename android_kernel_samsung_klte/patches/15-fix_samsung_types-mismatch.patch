@@ -1,0 +1,51 @@
+From 6bd34eeee743c15546325a462a83a93dce1576c6 Mon Sep 17 00:00:00 2001
+From: Paul Reioux <reioux@gmail.com>
+Date: Mon, 28 Apr 2014 23:11:41 -0700
+Subject: [PATCH] system_rev: fix type mismatch derps by Samsung
+
+Signed-off-by: Paul Reioux <reioux@gmail.com>
+---
+ drivers/extcon/extcon-max77804k.c                       | 2 +-
+ drivers/input/touchscreen/synaptics/synaptics_i2c_rmi.h | 2 +-
+ include/linux/sii8240.h                                 | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/extcon/extcon-max77804k.c b/drivers/extcon/extcon-max77804k.c
+index 32184c9..6732cd4 100755
+--- a/drivers/extcon/extcon-max77804k.c
++++ b/drivers/extcon/extcon-max77804k.c
+@@ -840,7 +840,7 @@ void max77804k_muic_send_event(int val)
+ 	kobject_uevent_env(&gInfo->dev->kobj, KOBJ_CHANGE, envp);
+ }
+ 
+-extern int system_rev;
++extern unsigned int system_rev;
+ 
+ void max77804k_otg_control(struct max77804k_muic_info *info, int enable)
+ {
+diff --git a/drivers/input/touchscreen/synaptics/synaptics_i2c_rmi.h b/drivers/input/touchscreen/synaptics/synaptics_i2c_rmi.h
+index df0e2f4..e2caf9a 100755
+--- a/drivers/input/touchscreen/synaptics/synaptics_i2c_rmi.h
++++ b/drivers/input/touchscreen/synaptics/synaptics_i2c_rmi.h
+@@ -465,7 +465,7 @@
+ #endif
+ 
+ 
+-extern int system_rev;
++extern unsigned int system_rev;
+ 
+ struct synaptics_rmi4_f01_device_status {
+ 	union {
+diff --git a/include/linux/sii8240.h b/include/linux/sii8240.h
+index 155bf03..3f8894e 100644
+--- a/include/linux/sii8240.h
++++ b/include/linux/sii8240.h
+@@ -105,7 +105,7 @@ struct sii8240_platform_data {
+ 	bool is_smartdock;
+ #endif
+ };
+-extern int system_rev;
++extern unsigned int system_rev;
+ int acc_register_notifier(struct notifier_block *nb);
+ #endif /* __SII8240_H__ */
+ 

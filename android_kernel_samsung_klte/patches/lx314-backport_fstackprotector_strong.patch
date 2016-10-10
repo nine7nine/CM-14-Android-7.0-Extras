@@ -1,0 +1,194 @@
+diff -Nur -X dontdiff a/arch/arm/include/asm/memory.h b/arch/arm/include/asm/memory.h
+--- a/arch/arm/include/asm/memory.h	2016-06-08 22:25:46.922197507 -0400
++++ b/arch/arm/include/asm/memory.h	2016-06-08 15:55:43.691458000 -0400
+@@ -270,7 +270,9 @@
+ #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
+ 
+ #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
+-#define virt_addr_valid(kaddr)	((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory)
++#define virt_addr_valid(kaddr)	(((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory) \
++					&& pfn_valid(__pa(kaddr) >> PAGE_SHIFT) )
++
+ 
+ /*
+  * Optional coherency support.  Currently used only by selected
+diff -Nur -X dontdiff a/arch/arm/Makefile b/arch/arm/Makefile
+--- a/arch/arm/Makefile	2016-06-08 22:25:46.841195944 -0400
++++ b/arch/arm/Makefile	2016-06-08 15:50:29.384525000 -0400
+@@ -37,10 +37,6 @@
+ KBUILD_CFLAGS	+=-fno-omit-frame-pointer -mapcs -mno-sched-prolog
+ endif
+ 
+-ifeq ($(CONFIG_CC_STACKPROTECTOR),y)
+-KBUILD_CFLAGS	+=-fstack-protector
+-endif
+-
+ ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
+ KBUILD_CPPFLAGS	+= -mbig-endian
+ AS		+= -EB
+diff -Nuarb a/arch/arm/Kconfig b/arch/arm/Kconfig
+--- a/arch/arm/Kconfig	2016-06-09 13:25:41.799753538 -0400
++++ b/arch/arm/Kconfig	2016-06-08 17:07:26.224976000 -0400
+@@ -804,6 +806,7 @@
+ 	select NEED_MACH_MEMORY_H
+ 	select NEED_MACH_IO_H
+ 	select SOC_BUS
++        select HAVE_CC_STACKPROTECTOR
+ 	help
+ 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
+ 	  apps processor of the MSM/QSD and depends on a shared memory
+diff -Nur -X dontdiff a/arch/arm/boot/compressed/misc.c b/arch/arm/boot/compressed/misc.c
+--- a/arch/arm/boot/compressed/misc.c	2016-06-01 21:14:29.859934000 -0400
++++ b/arch/arm/boot/compressed/misc.c	2016-06-03 13:11:18.513304760 -0400
+@@ -127,6 +127,18 @@
+ 	error("Attempting division by 0!");
+ }
+ 
++unsigned long __stack_chk_guard;
++
++void __stack_chk_guard_setup(void)
++{
++	__stack_chk_guard = 0x000a0dff;
++}
++
++void __stack_chk_fail(void)
++{
++	error("stack-protector: Kernel stack is corrupted\n");
++}
++
+ extern int do_decompress(u8 *input, int len, u8 *output, void (*error)(char *x));
+ 
+ 
+@@ -137,6 +149,8 @@
+ {
+ 	int ret;
+ 
++	__stack_chk_guard_setup();
++
+ 	output_data		= (unsigned char *)output_start;
+ 	free_mem_ptr		= free_mem_ptr_p;
+ 	free_mem_end_ptr	= free_mem_ptr_end_p;
+diff -Nur -X dontdiff a/Makefile b/Makefile
+--- a/Makefile	2016-06-01 21:15:08.687721000 -0400
++++ b/Makefile	2016-06-03 13:21:06.488137032 -0400
+@@ -585,10 +585,42 @@
+ KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
+ endif
+ 
+-# Force gcc to behave correct even for buggy distributions
+-ifndef CONFIG_CC_STACKPROTECTOR
+-KBUILD_CFLAGS += $(call cc-option, -fno-stack-protector)
++# Handle stack protector mode.
++#
++# Since kbuild can potentially perform two passes (first with the old
++# .config values and then with updated .config values), we cannot error out
++# if a desired compiler option is unsupported. If we were to error, kbuild
++# could never get to the second pass and actually notice that we changed
++# the option to something that was supported.
++#
++# Additionally, we don't want to fallback and/or silently change which compiler
++# flags will be used, since that leads to producing kernels with different
++# security feature characteristics depending on the compiler used. ("But I
++# selected CC_STACKPROTECTOR_STRONG! Why did it build with _REGULAR?!")
++#
++# The middle ground is to warn here so that the failed option is obvious, but
++# to let the build fail with bad compiler flags so that we can't produce a
++# kernel when there is a CONFIG and compiler mismatch.
++#
++ifdef CONFIG_CC_STACKPROTECTOR_REGULAR
++  stackp-flag := -fstack-protector
++  ifeq ($(call cc-option, $(stackp-flag)),)
++    $(warning Cannot use CONFIG_CC_STACKPROTECTOR_REGULAR: \
++             -fstack-protector not supported by compiler)
++  endif
++else
++ifdef CONFIG_CC_STACKPROTECTOR_STRONG
++  stackp-flag := -fstack-protector-strong
++  ifeq ($(call cc-option, $(stackp-flag)),)
++    $(warning Cannot use CONFIG_CC_STACKPROTECTOR_STRONG: \
++	      -fstack-protector-strong not supported by compiler)
++  endif
++else
++  # Force off for distro compilers that enable stack protector by default.
++  stackp-flag := $(call cc-option, -fno-stack-protector)
+ endif
++endif
++KBUILD_CFLAGS += $(stackp-flag)
+ 
+ # This warning generated too much noise in a regular build.
+ # Use make W=1 to enable this warning (see scripts/Makefile.build)
+diff -Nur -X dontdiff a/arch/Kconfig b/arch/Kconfig
+--- a/arch/Kconfig	2016-06-01 21:15:08.670721000 -0400
++++ b/arch/Kconfig	2016-06-03 13:17:15.870839324 -0400
+@@ -287,4 +287,71 @@
+ 	  This value can be changed after boot using the
+ 	  /proc/sys/vm/mmap_rnd_compat_bits tunable
+ 
++config HAVE_CC_STACKPROTECTOR
++	bool
++	help
++	  An arch should select this symbol if:
++	  - its compiler supports the -fstack-protector option
++	  - it has implemented a stack canary (e.g. __stack_chk_guard)
++
++config CC_STACKPROTECTOR
++	def_bool n
++	help
++	  Set when a stack-protector mode is enabled, so that the build
++	  can enable kernel-side support for the GCC feature.
++
++choice
++	prompt "Stack Protector buffer overflow detection"
++	depends on HAVE_CC_STACKPROTECTOR
++	default CC_STACKPROTECTOR_NONE
++	help
++	  This option turns on the "stack-protector" GCC feature. This
++	  feature puts, at the beginning of functions, a canary value on
++	  the stack just before the return address, and validates
++	  the value just before actually returning.  Stack based buffer
++	  overflows (that need to overwrite this return address) now also
++	  overwrite the canary, which gets detected and the attack is then
++	  neutralized via a kernel panic.
++
++config CC_STACKPROTECTOR_NONE
++	bool "None"
++	help
++	  Disable "stack-protector" GCC feature.
++
++config CC_STACKPROTECTOR_REGULAR
++	bool "Regular"
++	select CC_STACKPROTECTOR
++	help
++	  Functions will have the stack-protector canary logic added if they
++	  have an 8-byte or larger character array on the stack.
++
++	  This feature requires gcc version 4.2 or above, or a distribution
++	  gcc with the feature backported ("-fstack-protector").
++
++	  On an x86 "defconfig" build, this feature adds canary checks to
++	  about 3% of all kernel functions, which increases kernel code size
++	  by about 0.3%.
++
++config CC_STACKPROTECTOR_STRONG
++	bool "Strong"
++	select CC_STACKPROTECTOR
++	help
++	  Functions will have the stack-protector canary logic added in any
++	  of the following conditions:
++
++	  - local variable's address used as part of the right hand side of an
++	    assignment or function argument
++	  - local variable is an array (or union containing an array),
++	    regardless of array type or length
++	  - uses register local variables
++
++	  This feature requires gcc version 4.9 or above, or a distribution
++	  gcc with the feature backported ("-fstack-protector-strong").
++
++	  On an x86 "defconfig" build, this feature adds canary checks to
++	  about 20% of all kernel functions, which increases the kernel code
++	  size by about 2%.
++
++endchoice
++
+ source "kernel/gcov/Kconfig"

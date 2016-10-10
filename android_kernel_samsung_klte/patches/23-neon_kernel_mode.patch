@@ -1,0 +1,371 @@
+From e3fadfb93814a9ff7a8245450662d1bc32367164 Mon Sep 17 00:00:00 2001
+From: mrg666 <drgungor@hotmail.com>
+Date: Sat, 21 Dec 2013 10:04:48 -0500
+Subject: [PATCH] ARM: be strict about FP exceptions in kernel mode
+
+The support code in vfp_support_entry does not care whether the
+exception that caused it to be invoked occurred in kernel mode or
+in user mode. However, neither condition that could trigger this
+exception (lazy restore and VFP bounce to support code) is
+currently allowable in kernel mode.
+
+In either case, print a message describing the condition before
+letting the undefined instruction handler run its course and trigger
+an oops.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Acked-by: Nicolas Pitre <nico@linaro.org>
+---
+ arch/arm/vfp/vfphw.S     |  5 +++++
+ arch/arm/vfp/vfpmodule.c | 20 ++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/arch/arm/vfp/vfphw.S b/arch/arm/vfp/vfphw.S
+index e8a55b7..74a0607 100644
+--- a/arch/arm/vfp/vfphw.S
++++ b/arch/arm/vfp/vfphw.S
+@@ -71,6 +71,11 @@
+ ENTRY(vfp_support_entry)
+ 	DBGSTR3	"instr %08x pc %08x state %p", r0, r2, r10
+ 
++	ldr	r3, [sp, #S_PSR]	@ Neither lazy restore nor FP exceptions
++	and	r3, r3, #MODE_MASK	@ are supported in kernel mode
++	teq	r3, #USR_MODE
++	bne	vfp_kmode_exception	@ Returns through lr
++
+ 	VFPFMRX	r1, FPEXC		@ Is the VFP enabled?
+ 	DBGSTR1	"fpexc %08x", r1
+ 	tst	r1, #FPEXC_EN
+diff --git a/arch/arm/vfp/vfpmodule.c b/arch/arm/vfp/vfpmodule.c
+index 3a5443d..b518961 100644
+--- a/arch/arm/vfp/vfpmodule.c
++++ b/arch/arm/vfp/vfpmodule.c
+@@ -634,6 +634,26 @@ int vfp_restore_user_hwstate(struct user_vfp __user *ufp,
+ 	return err ? -EFAULT : 0;
+ }
+ 
++void vfp_kmode_exception(void)
++{
++	/*
++	 * If we reach this point, a floating point exception has been raised
++	 * while running in kernel mode. If the NEON/VFP unit was enabled at the
++	 * time, it means a VFP instruction has been issued that requires
++	 * software assistance to complete, something which is not currently
++	 * supported in kernel mode.
++	 * If the NEON/VFP unit was disabled, and the location pointed to below
++	 * is properly preceded by a call to kernel_neon_begin(), something has
++	 * caused the task to be scheduled out and back in again. In this case,
++	 * rebuilding and running with CONFIG_DEBUG_ATOMIC_SLEEP enabled should
++	 * be helpful in localizing the problem.
++	 */
++	if (fmrx(FPEXC) & FPEXC_EN)
++		pr_crit("BUG: unsupported FP instruction in kernel mode\n");
++	else
++		pr_crit("BUG: FP instruction issued in kernel mode with FP unit disabled\n");
++}
++
+ /*
+  * VFP hardware can lose all context when a CPU goes offline.
+  * As we will be running in SMP mode with CPU hotplug, we will save the
+From 59f56cdfe4cdc0a578edbb816ea3e3f4e4ff1c39 Mon Sep 17 00:00:00 2001
+From: mrg666 <drgungor@hotmail.com>
+Date: Sat, 21 Dec 2013 10:06:56 -0500
+Subject: [PATCH] ARM: add support for kernel mode NEON
+
+In order to safely support the use of NEON instructions in
+kernel mode, some precautions need to be taken:
+- the userland context that may be present in the registers (even
+  if the NEON/VFP is currently disabled) must be stored under the
+  correct task (which may not be 'current' in the UP case),
+- to avoid having to keep track of additional vfpstates for the
+  kernel side, disallow the use of NEON in interrupt context
+  and run with preemption disabled,
+- after use, re-enable preemption and re-enable the lazy restore
+  machinery by disabling the NEON/VFP unit.
+
+This patch adds the functions kernel_neon_begin() and
+kernel_neon_end() which take care of the above. It also adds
+the Kconfig symbol KERNEL_MODE_NEON to enable it.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Acked-by: Nicolas Pitre <nico@linaro.org>
+---
+ arch/arm/Kconfig            |  7 +++++++
+ arch/arm/include/asm/neon.h | 36 ++++++++++++++++++++++++++++++++++
+ arch/arm/vfp/vfpmodule.c    | 47 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 90 insertions(+)
+ create mode 100644 arch/arm/include/asm/neon.h
+
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index db3c96b..5a510d3 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -2418,6 +2418,13 @@ config NEON
+ 	  Say Y to include support code for NEON, the ARMv7 Advanced SIMD
+ 	  Extension.
+ 
++config KERNEL_MODE_NEON
++	bool "Support for NEON in kernel mode"
++	default n
++	depends on NEON
++	help
++	  Say Y to include support for NEON in kernel mode.
++
+ endmenu
+ 
+ menu "Userspace binary formats"
+diff --git a/arch/arm/include/asm/neon.h b/arch/arm/include/asm/neon.h
+new file mode 100644
+index 0000000..8f730fe
+--- /dev/null
++++ b/arch/arm/include/asm/neon.h
+@@ -0,0 +1,36 @@
++/*
++ * linux/arch/arm/include/asm/neon.h
++ *
++ * Copyright (C) 2013 Linaro Ltd <ard.biesheuvel@linaro.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <asm/hwcap.h>
++
++#define cpu_has_neon()		(!!(elf_hwcap & HWCAP_NEON))
++
++#ifdef __ARM_NEON__
++
++/*
++ * If you are affected by the BUILD_BUG below, it probably means that you are
++ * using NEON code /and/ calling the kernel_neon_begin() function from the same
++ * compilation unit. To prevent issues that may arise from GCC reordering or
++ * generating(1) NEON instructions outside of these begin/end functions, the
++ * only supported way of using NEON code in the kernel is by isolating it in a
++ * separate compilation unit, and calling it from another unit from inside a
++ * kernel_neon_begin/kernel_neon_end pair.
++ *
++ * (1) Current GCC (4.7) might generate NEON instructions at O3 level if
++ *     -mpfu=neon is set.
++ */
++
++#define kernel_neon_begin() \
++	BUILD_BUG_ON_MSG(1, "kernel_neon_begin() called from NEON code")
++
++#else
++void kernel_neon_begin(void);
++#endif
++void kernel_neon_end(void);
+diff --git a/arch/arm/vfp/vfpmodule.c b/arch/arm/vfp/vfpmodule.c
+index b518961..a9051f4 100644
+--- a/arch/arm/vfp/vfpmodule.c
++++ b/arch/arm/vfp/vfpmodule.c
+@@ -20,6 +20,7 @@
+ #include <linux/init.h>
+ #include <linux/uaccess.h>
+ #include <linux/user.h>
++#include <linux/export.h>
+ #include <linux/proc_fs.h>
+ 
+ #include <asm/cp15.h>
+@@ -654,6 +655,52 @@ void vfp_kmode_exception(void)
+ 		pr_crit("BUG: FP instruction issued in kernel mode with FP unit disabled\n");
+ }
+ 
++#ifdef CONFIG_KERNEL_MODE_NEON
++
++/*
++ * Kernel-side NEON support functions
++ */
++void kernel_neon_begin(void)
++{
++	struct thread_info *thread = current_thread_info();
++	unsigned int cpu;
++	u32 fpexc;
++
++	/*
++	 * Kernel mode NEON is only allowed outside of interrupt context
++	 * with preemption disabled. This will make sure that the kernel
++	 * mode NEON register contents never need to be preserved.
++	 */
++	BUG_ON(in_interrupt());
++	cpu = get_cpu();
++
++	fpexc = fmrx(FPEXC) | FPEXC_EN;
++	fmxr(FPEXC, fpexc);
++
++	/*
++	 * Save the userland NEON/VFP state. Under UP,
++	 * the owner could be a task other than 'current'
++	 */
++	if (vfp_state_in_hw(cpu, thread))
++		vfp_save_state(&thread->vfpstate, fpexc);
++#ifndef CONFIG_SMP
++	else if (vfp_current_hw_state[cpu] != NULL)
++		vfp_save_state(vfp_current_hw_state[cpu], fpexc);
++#endif
++	vfp_current_hw_state[cpu] = NULL;
++}
++EXPORT_SYMBOL(kernel_neon_begin);
++
++void kernel_neon_end(void)
++{
++	/* Disable the NEON/VFP unit. */
++	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
++	put_cpu();
++}
++EXPORT_SYMBOL(kernel_neon_end);
++
++#endif /* CONFIG_KERNEL_MODE_NEON */
++
+ /*
+  * VFP hardware can lose all context when a CPU goes offline.
+  * As we will be running in SMP mode with CPU hotplug, we will save the
+diff -Nur -X dontdiff a/arch/arm/include/asm/xor.h b/arch/arm/include/asm/xor.h
+--- a/arch/arm/include/asm/xor.h	2016-01-17 00:31:54.899468000 -0500
++++ b/arch/arm/include/asm/xor.h	2016-01-17 02:07:10.962774865 -0500
+@@ -7,7 +7,10 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++#include <linux/hardirq.h>
+ #include <asm-generic/xor.h>
++#include <asm/hwcap.h>
++#include <asm/neon.h>
+ 
+ #define __XOR(a1, a2) a1 ^= a2
+ 
+@@ -138,4 +141,74 @@
+ 		xor_speed(&xor_block_arm4regs);	\
+ 		xor_speed(&xor_block_8regs);	\
+ 		xor_speed(&xor_block_32regs);	\
++		NEON_TEMPLATES;			\
+ 	} while (0)
++
++#ifdef CONFIG_KERNEL_MODE_NEON
++
++extern struct xor_block_template const xor_block_neon_inner;
++
++static void
++xor_neon_2(unsigned long bytes, unsigned long *p1, unsigned long *p2)
++{
++	if (in_interrupt()) {
++		xor_arm4regs_2(bytes, p1, p2);
++	} else {
++		kernel_neon_begin();
++		xor_block_neon_inner.do_2(bytes, p1, p2);
++		kernel_neon_end();
++	}
++}
++
++static void
++xor_neon_3(unsigned long bytes, unsigned long *p1, unsigned long *p2,
++		unsigned long *p3)
++{
++	if (in_interrupt()) {
++		xor_arm4regs_3(bytes, p1, p2, p3);
++	} else {
++		kernel_neon_begin();
++		xor_block_neon_inner.do_3(bytes, p1, p2, p3);
++		kernel_neon_end();
++	}
++}
++
++static void
++xor_neon_4(unsigned long bytes, unsigned long *p1, unsigned long *p2,
++		unsigned long *p3, unsigned long *p4)
++{
++	if (in_interrupt()) {
++		xor_arm4regs_4(bytes, p1, p2, p3, p4);
++	} else {
++		kernel_neon_begin();
++		xor_block_neon_inner.do_4(bytes, p1, p2, p3, p4);
++		kernel_neon_end();
++	}
++}
++
++static void
++xor_neon_5(unsigned long bytes, unsigned long *p1, unsigned long *p2,
++		unsigned long *p3, unsigned long *p4, unsigned long *p5)
++{
++	if (in_interrupt()) {
++		xor_arm4regs_5(bytes, p1, p2, p3, p4, p5);
++	} else {
++		kernel_neon_begin();
++		xor_block_neon_inner.do_5(bytes, p1, p2, p3, p4, p5);
++		kernel_neon_end();
++	}
++}
++
++static struct xor_block_template xor_block_neon = {
++	.name	= "neon",
++	.do_2	= xor_neon_2,
++	.do_3	= xor_neon_3,
++	.do_4	= xor_neon_4,
++	.do_5	= xor_neon_5
++};
++
++#define NEON_TEMPLATES	\
++	do { if (cpu_has_neon()) xor_speed(&xor_block_neon); } while (0)
++#else
++#define NEON_TEMPLATES
++#endif
+diff -Nur -X dontdiff a/arch/arm/lib/Makefile b/arch/arm/lib/Makefile
+--- a/arch/arm/lib/Makefile	2016-01-17 00:31:54.917468000 -0500
++++ b/arch/arm/lib/Makefile	2016-01-17 02:07:10.962774865 -0500
+@@ -46,3 +46,9 @@
+ 
+ $(obj)/csumpartialcopy.o:	$(obj)/csumpartialcopygeneric.S
+ $(obj)/csumpartialcopyuser.o:	$(obj)/csumpartialcopygeneric.S
++
++ifeq ($(CONFIG_KERNEL_MODE_NEON),y)
++  NEON_FLAGS			:= -mfloat-abi=softfp -mfpu=neon
++  CFLAGS_xor-neon.o		+= $(NEON_FLAGS)
++  lib-$(CONFIG_XOR_BLOCKS)	+= xor-neon.o
++endif
+diff -Nur -X dontdiff a/arch/arm/lib/xor-neon.c b/arch/arm/lib/xor-neon.c
+--- a/arch/arm/lib/xor-neon.c	1969-12-31 19:00:00.000000000 -0500
++++ b/arch/arm/lib/xor-neon.c	2016-01-17 02:07:10.962774865 -0500
+@@ -0,0 +1,42 @@
++/*
++ * linux/arch/arm/lib/xor-neon.c
++ *
++ * Copyright (C) 2013 Linaro Ltd <ard.biesheuvel@linaro.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/raid/xor.h>
++
++#ifndef __ARM_NEON__
++#error You should compile this file with '-mfloat-abi=softfp -mfpu=neon'
++#endif
++
++/*
++ * Pull in the reference implementations while instructing GCC (through
++ * -ftree-vectorize) to attempt to exploit implicit parallelism and emit
++ * NEON instructions.
++ */
++#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
++#pragma GCC optimize "tree-vectorize"
++#else
++/*
++ * While older versions of GCC do not generate incorrect code, they fail to
++ * recognize the parallel nature of these functions, and emit plain ARM code,
++ * which is known to be slower than the optimized ARM code in asm-arm/xor.h.
++ */
++#warning This code requires at least version 4.6 of GCC
++#endif
++
++#pragma GCC diagnostic ignored "-Wunused-variable"
++#include <asm-generic/xor.h>
++
++struct xor_block_template const xor_block_neon_inner = {
++	.name	= "__inner_neon__",
++	.do_2	= xor_8regs_2,
++	.do_3	= xor_8regs_3,
++	.do_4	= xor_8regs_4,
++	.do_5	= xor_8regs_5,
++};

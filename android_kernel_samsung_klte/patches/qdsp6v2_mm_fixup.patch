@@ -1,0 +1,32 @@
+diff -Nuarb -X dontdiff a/sound/soc/msm/qdsp6v2/msm-compress-q6-v2.c b/sound/soc/msm/qdsp6v2/msm-compress-q6-v2.c
+--- a/sound/soc/msm/qdsp6v2/msm-compress-q6-v2.c	2016-03-24 06:18:58.000000000 -0400
++++ b/sound/soc/msm/qdsp6v2/msm-compress-q6-v2.c	2016-05-10 05:48:43.000000000 -0400
+@@ -422,6 +422,28 @@
+ 				} else
+ 					msm_compr_send_buffer(prtd);
+ 			}
++
++			/*
++			 * The condition below ensures playback finishes in the
++			 * follow cornercase
++			 * WRITE(last buffer)
++			 * WAIT_FOR_DRAIN
++			 * PAUSE
++			 * WRITE_DONE(X)
++			 * RESUME
++			 */
++			if ((prtd->copied_total == prtd->bytes_sent) &&
++			    atomic_read(&prtd->drain)) {
++				pr_debug("RUN ack, wake up & continue pending drain\n");
++
++				if (prtd->last_buffer)
++					prtd->last_buffer = 0;
++
++				prtd->drain_ready = 1;
++				wake_up(&prtd->drain_wait);
++				atomic_set(&prtd->drain, 0);
++			}
++
+ 			spin_unlock(&prtd->lock);
+ 			break;
+ 		case ASM_STREAM_CMD_FLUSH:

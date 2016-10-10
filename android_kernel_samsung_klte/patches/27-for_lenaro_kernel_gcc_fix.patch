@@ -1,0 +1,46 @@
+From 4a7cebd91f796fcb9d1e1e5723de27b75f1712d6 Mon Sep 17 00:00:00 2001
+From: Chih-Wei Huang <cwhuang@linux.org.tw>
+Date: Tue, 24 Dec 2013 17:51:55 +0800
+Subject: [PATCH] cpufreq: interactive: fix compiling warnings
+
+The gcc warns like:
+
+  cpufreq_interactive.c:745:6: warning: operation on 'ret' may be
+undefined [-Wsequence-point]
+
+It was introduced by commit cf0fad49d17cb8273ce555dd5b7afab67d7923bf.
+
+Since sprintf(...) just return 1 (one character) in this case, ret
+should not changed.
+Just discarding the result of sprintf(...) leads to the result that
+the committer of cf0fad49d17cb8273ce555dd5b7afab67d7923bf wants.
+
+Change-Id: Ifed1cef6d6a31c3ed23dad03a567b3b9eddf3a57
+Signed-off-by: Chih-Wei Huang <cwhuang@android-x86.org>
+Signed-off-by: Dave Daynard <nardholio@gmail.com>
+---
+ drivers/cpufreq/cpufreq_interactive.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_interactive.c b/drivers/cpufreq/cpufreq_interactive.c
+index eb9cd2e..c9d7de7 100644
+--- a/drivers/cpufreq/cpufreq_interactive.c
++++ b/drivers/cpufreq/cpufreq_interactive.c
+@@ -741,7 +741,7 @@ static ssize_t show_target_loads(
+ 		ret += sprintf(buf + ret, "%u%s", target_loads[i],
+ 			       i & 0x1 ? ":" : " ");
+ 
+-	ret += sprintf(buf + --ret, "\n");
++	sprintf(buf + ret - 1, "\n");
+ 	spin_unlock_irqrestore(&target_loads_lock, flags);
+ 	return ret;
+ }
+@@ -784,7 +784,7 @@ static ssize_t show_above_hispeed_delay(
+ 		ret += sprintf(buf + ret, "%u%s", above_hispeed_delay[i],
+ 			       i & 0x1 ? ":" : " ");
+ 
+-	ret += sprintf(buf + --ret, "\n");
++	sprintf(buf + ret - 1, "\n");
+ 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
+ 	return ret;
+ }

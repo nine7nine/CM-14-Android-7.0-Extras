@@ -1,0 +1,29 @@
+From 52537609f6e4e7b460e42b38320dd147558e555d Mon Sep 17 00:00:00 2001
+From: googyanas <googyanas@gmail.com>
+Date: Thu, 29 May 2014 23:32:52 +0100
+Subject: [PATCH] bcmdhd: reduce wakelocks
+
+Conflicts:
+	drivers/net/wireless/bcmdhd/dhd.h
+---
+ drivers/net/wireless/bcmdhd/dhd_linux.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/bcmdhd/dhd_linux.c b/drivers/net/wireless/bcmdhd/dhd_linux.c
+index fed64a3..79045e4 100644
+--- a/drivers/net/wireless/bcmdhd/dhd_linux.c
++++ b/drivers/net/wireless/bcmdhd/dhd_linux.c
+@@ -7201,10 +7201,10 @@ int dhd_os_wake_lock_timeout(dhd_pub_t *pub)
+ #ifdef CONFIG_HAS_WAKELOCK
+ 		if (dhd->wakelock_rx_timeout_enable)
+ 			wake_lock_timeout(&dhd->wl_rxwake,
+-				msecs_to_jiffies(dhd->wakelock_rx_timeout_enable));
++				msecs_to_jiffies(dhd->wakelock_rx_timeout_enable)/2);
+ 		if (dhd->wakelock_ctrl_timeout_enable)
+ 			wake_lock_timeout(&dhd->wl_ctrlwake,
+-				msecs_to_jiffies(dhd->wakelock_ctrl_timeout_enable));
++				msecs_to_jiffies(dhd->wakelock_ctrl_timeout_enable)/2);
+ #endif
+ 		dhd->wakelock_rx_timeout_enable = 0;
+ 		dhd->wakelock_ctrl_timeout_enable = 0;
+
