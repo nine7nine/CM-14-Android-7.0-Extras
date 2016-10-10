@@ -6,19 +6,19 @@ Each folder name matches the folder in AOSP tree, where the patches are to be ap
 
 # android_build  
 
-1. optional_automated_build_cutom_key_signing_N.patch 
+* optional_automated_build_cutom_key_signing_N.patch 
 
 more info here: https://github.com/nine7nine/android_build
 
 # packages_apps_settings  
 
-1. 0-app_settings_random_mac-toggle_N.patch 
+* 0-app_settings_random_mac-toggle_N.patch 
 
 A patch from CopperheadOS. Enables Mac Address Randomization. * Requires kernel support and adding the corresponding patch to
 platform_system_core ; 'random_mac_property.patch' (below). Original Patch; 
 https://github.com/CopperheadOS/platform_packages_apps_Settings/commit/6152b998216b36a95260918adf519302ac847ed3 
 
-2. app_settings_privacyguard_xposed_N.patch 
+* app_settings_privacyguard_xposed_N.patch 
 
 A patch that I wrote for Android M/N that makes PrivacyGaurd in CM behave more like AppOppsXosed for the Xposed framework.
 Most of the code was adapted from the AppOppsXposed plugin source code, Found here; https://github.com/jclehner/AppOpsXposed
@@ -33,12 +33,12 @@ made a backup and can revert settings, it it breaks something.
 
 # platform_system_core 
 
-1. random_mac_property.patch 
+* random_mac_property.patch 
 
 Adds a property for enabling Mac address randomization, requires kernel and settings app support. Original Patch;
 https://github.com/CopperheadOS/platform_system_core/commit/53952b7938aa16b570f1ac709db2fffa46ff59e9
 
-2. tighten_tcp-ip_settings.patch 
+* tighten_tcp-ip_settings.patch 
 
 (tightens up tcp-ip settings) Original Patch;
 https://github.com/CopperheadOS/platform_system_core/commit/3dc7911571e268d1b93d02d09847f30e74dc9246
