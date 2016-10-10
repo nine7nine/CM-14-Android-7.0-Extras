@@ -20,16 +20,16 @@ https://github.com/CopperheadOS/platform_packages_apps_Settings/commit/6152b9982
 
 * app_settings_privacyguard_xposed_N.patch 
 
-A patch that I wrote for Android M/N that makes PrivacyGaurd in CM behave more like AppOppsXosed for the Xposed framework.
-Most of the code was adapted from the AppOppsXposed plugin source code, Found here; https://github.com/jclehner/AppOpsXposed
+A patch that I wrote for Android M (and forwarded to N) that makes PrivacyGaurd in CM behave more like AppOppsXposed module 
+for the Xposed framework. Most of the code was adapted from the AppOppsXposed source code, Found here; https://github.com/jclehner/AppOpsXposed ... 
 
 This modification enables all of the permissions that Cyanogenmod hides or doesn't allow you to change. 
 
 IMPROTANT NOTE: You can also modify system apps permissions, which can be very dangerous - great care must be taken, or you 
-could break something! ... I mainly find this helpful to identify what permissions (system) apps may be using. However, there 
-are cases where you may want to disable a particular permission, since not all system apps may necessarily trusted by the user 
-(I'm thinking of some Google applications here! lol). But I only do this, *when I know that it won't cause issues OR I have 
-made a backup and can revert settings, it it breaks something. 
+could break something, usually resulting in a bootloop! ... I mainly find this helpful to identify what permissions (system) 
+apps may be using. However, there are cases where you may want to disable a particular permission, since not all system apps 
+may necessarily trusted by the user (I'm thinking of some Google apps here! lol). But I only do this ; when I know that 
+it won't cause issues *and/or* I have made a backup and can revert settings, it it breaks something. 
 
 # platform_system_core 
 
