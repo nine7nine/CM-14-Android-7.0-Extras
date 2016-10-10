@@ -15,6 +15,14 @@ to ../BoardConfig.mk (ie: your product's BoardConfig.mk).
 
 Documentation; https://source.android.com/devices/tech/dalvik/configure.html
 
+# optional / Automated Key-signing Builds
+
+1) patch android_build to allow optional / automated key-signing to build
+2) create keys folder + Generate keys
+3) export SIGNING_KEY_DIR=/path/to/your/signing-keys
+
+More/Detailed info here; https://github.com/nine7nine/android_build
+
 # Linaro Toolchain (gcc-5.2.1)
 
 ..todo
