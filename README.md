@@ -54,7 +54,9 @@ contains all of the patchwork that I have accumulated for klte; mostly backports
 seccomp-bpf, bits from grsec, linaro-gcc-5.2.1 toolchain support (disabled for now), randomized mac address support (to be used 
 with the above patches), etc... 
 
-There are too many patches to cover in detail, but I would note that the patchwork comes from a variety of different sources; various github / android kernels, upstream linux (backports, ranging from linux-3.5 - 4.x), CopperheadOS github, etc.
+There are too many patches to cover in detail, but I would note that the patchwork comes from a variety of different sources;
+various github / android kernels, upstream linux (backports, ranging from linux-3.5 - 4.x), CopperheadOS github, samsung code 
+drops, etc.
 
 * patchkernel.sh
 
