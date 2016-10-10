@@ -1,0 +1,15 @@
+# Odexing Roms
+
+I prefer to odex my AOSP/CM roms. It's easy to do, add;
+
+# ODEX
+
+WITH_DEXPREOPT := true
+
+to ../BoardConfig.mk (ie: your product's BoardConfig.mk). 
+
+Documentation; https://source.android.com/devices/tech/dalvik/configure.html
+
+# Linaro Toolchain (gcc-5.2.1)
+
+..todo
