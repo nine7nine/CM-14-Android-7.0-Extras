@@ -1,12 +1,12 @@
 # CM-14-Android-7.0-Patchwork
 
-This repository conatins patchwork that I add to Cyanogenmod 14 / Nougat. 
+This repository conatins patchwork that can be used with Cyanogenmod 14 / Nougat. 
 
 Each folder name matches the folder in AOSP tree, where the patches are to be applied;
 
 # android_build  
 
-* optional_automated_build_cutom_key_signing_N.patch 
+* optional_automated_build_cutom_key_signing_N.patch
 
 more info here: https://github.com/nine7nine/android_build
 
