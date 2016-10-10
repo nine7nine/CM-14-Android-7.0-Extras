@@ -42,3 +42,22 @@ https://github.com/CopperheadOS/platform_system_core/commit/53952b7938aa16b570f1
 
 (tightens up tcp-ip settings) Original Patch;
 https://github.com/CopperheadOS/platform_system_core/commit/3dc7911571e268d1b93d02d09847f30e74dc9246
+
+# android_kernel_samsung_klte
+ 
+This folder contains patchwork that can be added to CM14's Galaxy s5 kernel sources. The patches folder && patchkernel.sh 
+script must be copied into the kernel sources (and applied using the script). 
+
+* ../patches folder 
+
+contains all of the patchwork that I have accumulated for klte; mostly backports, optimizations and additional featurers;
+seccomp-bpf, bits from grsec, linaro-gcc-5.2.1 toolchain support (disabled for now), randomized mac address support (to be used 
+with the above patches), etc... 
+
+There are too many patches to cover in detail, but I would note that the patchwork comes from a variety of different sources; various github / android kernels, upstream linux (backports, ranging from linux-3.5 - 4.x), CopperheadOS github, etc.
+
+* patchkernel.sh
+
+A script used to apply the patches from within the kernel sources. each patch is echoed as a number, so that if a patch breaks; 
+it will be easy to tell which one failed to apply. This is helpful when rebasing conflicts that may occur due to new commits.
+
