@@ -17,9 +17,10 @@ Documentation; https://source.android.com/devices/tech/dalvik/configure.html
 
 # optional / Automated Key-signing Builds
 
-1) patch android_build to allow optional / automated key-signing to build
-2) create keys folder + Generate keys
-3) export SIGNING_KEY_DIR=/path/to/your/signing-keys
+* 1) patch android_build to allow optional / automated key-signing to build
+* 2) create keys folder + Generate keys
+* 3) export SIGNING_KEY_DIR=/path/to/your/signing-keys
+* 4) build android (ie: brunch foo)
 
 More/Detailed info here; https://github.com/nine7nine/android_build
 
