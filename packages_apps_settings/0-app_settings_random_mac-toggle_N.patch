@@ -1,0 +1,124 @@
+From 6152b998216b36a95260918adf519302ac847ed3 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Wed, 2 Dec 2015 00:42:48 -0500
+Subject: [PATCH] add toggle for MAC address randomization
+
+Change-Id: Ifd40731670580b7f9d0957dea60b95660e3e20b1
+---
+ res/values/strings.xml                         |  4 ++++
+ res/xml/wireless_settings.xml                  |  6 ++++++
+ src/com/android/settings/WirelessSettings.java | 30 +++++++++++++++++++++++++-
+ 3 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index e005666..6e05449 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -7594,4 +7594,8 @@
+     <string name="lte_data_service_enabled">LTE data service enabled </string>
+     <string name="turn_off_wifi_dialog_title">Turn off Wi-Fi</string>
+     <string name="turn_off_wifi_dialog_text">Wi-Fi is turned off when Mobile HotSpot is active. To turn on Wi-Fi, please turn off Mobile HotSpot.</string>
++
++    <!-- randomize MAC addresses -->
++    <string name="randomize_mac_title">Randomize MAC addresses</string>
++    <string name="randomize_mac_summary">Assign random MAC addresses when network devices are enabled. MAC randomization is used during scanning whether or not this is enabled.</string>
+ </resources>
+diff --git a/res/xml/wireless_settings.xml b/res/xml/wireless_settings.xml
+index 0461bf8..c95bdce 100644
+--- a/res/xml/wireless_settings.xml
++++ b/res/xml/wireless_settings.xml
+@@ -19,6 +19,12 @@
+         android:title="@string/radio_controls_title">
+ 
+     <SwitchPreference
++        android:key="randomize_mac"
++        android:title="@string/randomize_mac_title"
++        android:summary="@string/randomize_mac_summary"
++        android:persistent="false" />
++
++    <SwitchPreference
+         android:key="toggle_airplane"
+         android:title="@string/airplane_mode"
+         android:disableDependentsState="true" />
+diff --git a/src/com/android/settings/WirelessSettings.java b/src/com/android/settings/WirelessSettings.java
+index 5b1d644..9b46a71 100644
+--- a/src/com/android/settings/WirelessSettings.java
++++ b/src/com/android/settings/WirelessSettings.java
+@@ -45,6 +45,7 @@
+ import android.provider.Settings;
+ import android.support.v14.preference.SwitchPreference;
+ import android.support.v7.preference.Preference;
++import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+ import android.support.v7.preference.PreferenceScreen;
+ import android.telephony.TelephonyManager;
+ import android.text.TextUtils;
+@@ -70,10 +71,12 @@
+ import java.util.Arrays;
+ import java.util.List;
+ 
+-public class WirelessSettings extends SettingsPreferenceFragment implements Indexable {
++public class WirelessSettings extends SettingsPreferenceFragment
++        implements OnPreferenceChangeListener, Indexable {
+     private static final String TAG = "WirelessSettings";
+     private static final boolean DEBUG = true;
+ 
++    private static final String KEY_RANDOMIZE_MAC = "randomize_mac";
+     private static final String KEY_TOGGLE_AIRPLANE = "toggle_airplane";
+     private static final String KEY_TOGGLE_NFC = "toggle_nfc";
+     private static final String KEY_WIMAX_SETTINGS = "wimax_settings";
+@@ -90,9 +93,13 @@
+     private static final String ACTION_WIFI_CALL_OFF = "com.android.wificall.TURNOFF";
+     private static final String WIFI_CALLING_PREFERRED = "preference";
+ 
++    private static final String RANDOMIZE_MAC_PERSIST_PROP = "persist.privacy.randomize_mac";
++
+     public static final String EXIT_ECM_RESULT = "exit_ecm_result";
+     public static final int REQUEST_CODE_EXIT_ECM = 1;
+ 
++    private SwitchPreference mRandomizeMac;
++
+     private AirplaneModeEnabler mAirplaneModeEnabler;
+     private SwitchPreference mAirplaneModePreference;
+     private NfcEnabler mNfcEnabler;
+@@ -346,6 +353,13 @@
+         final boolean isAdmin = mUm.isAdminUser();
+ 
+         final Activity activity = getActivity();
++        if (!isAdmin) {
++            PreferenceScreen root = getPreferenceScreen();
++            root.removePreference(root.findPreference(KEY_RANDOMIZE_MAC));
++        } else {
++            mRandomizeMac = (SwitchPreference) findPreference(KEY_RANDOMIZE_MAC);
++            mRandomizeMac.setOnPreferenceChangeListener(this);
++        }
+         mAirplaneModePreference = (SwitchPreference) findPreference(KEY_TOGGLE_AIRPLANE);
+         SwitchPreference nfc = (SwitchPreference) findPreference(KEY_TOGGLE_NFC);
+         RestrictedPreference androidBeam = (RestrictedPreference) findPreference(
+@@ -539,6 +553,10 @@
+             getActivity().bindService(intentWfc, mConnection, Context.BIND_AUTO_CREATE);
+         }
+ 
++        if (mRandomizeMac != null) {
++            mRandomizeMac.setChecked(SystemProperties.getBoolean(RANDOMIZE_MAC_PERSIST_PROP, true));
++        }
++
+         mAirplaneModeEnabler.resume();
+         if (mNfcEnabler != null) {
+             mNfcEnabler.resume();
+@@ -567,6 +585,16 @@
+         }
+     }
+ 
++     @Override
++     public boolean onPreferenceChange(Preference preference, Object newValue) {
++         if (preference == mRandomizeMac) {
++             SystemProperties.set(RANDOMIZE_MAC_PERSIST_PROP, (Boolean) newValue ? "1" : "0");
++             return true;
++         }
++
++         return false;
++     }
++
+     @Override
+     public void onSaveInstanceState(Bundle outState) {
+         super.onSaveInstanceState(outState);
