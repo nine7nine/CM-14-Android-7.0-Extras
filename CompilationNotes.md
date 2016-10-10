@@ -9,8 +9,6 @@ I'm adding this file to keep track of these types of changes, that are not worth
 
 I prefer to odex my AOSP/CM roms. It's easy to do, add;
 
-# ODEX
-
 WITH_DEXPREOPT := true
 
 to ../BoardConfig.mk (ie: your product's BoardConfig.mk). 
