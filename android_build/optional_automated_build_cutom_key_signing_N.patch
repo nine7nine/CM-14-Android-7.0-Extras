@@ -1,0 +1,86 @@
+--- core/Makefile	2016-10-08 16:35:32.909518000 -0400
++++ core/Makefile	2016-10-08 23:16:24.249389473 -0400
+@@ -418,6 +418,11 @@
+     DEFAULT_KEY_CERT_PAIR := $(OTA_PACKAGE_SIGNING_KEY)
+ endif
+ 
++ifneq ($(SIGNING_KEY_DIR),)
++    KEY_CERT_DIR := $(SIGNING_KEY_DIR)
++    DEFAULT_KEY_CERT_PAIR := $(SIGNING_KEY_DIR)/releasekey
++endif
++
+ # Rules that need to be present for the all targets, even
+ # if they don't do anything.
+ .PHONY: systemimage
+@@ -1012,9 +1017,14 @@
+ # substitute other keys for this one.
+ OTA_PUBLIC_KEYS := $(DEFAULT_SYSTEM_DEV_CERTIFICATE).x509.pem
+ 
+-ifneq ($(OTA_PACKAGE_SIGNING_KEY),)
+-    OTA_PUBLIC_KEYS := $(OTA_PACKAGE_SIGNING_KEY).x509.pem
+-    PRODUCT_EXTRA_RECOVERY_KEYS := $(DEFAULT_SYSTEM_DEV_CERTIFICATE)
++ifneq ($(SIGNING_KEY_DIR),)
++    OTA_PUBLIC_KEYS := $(SIGNING_KEY_DIR)/releasekey.x509.pem
++    PRODUCT_EXTRA_RECOVERY_KEYS += $(SIGNING_KEY_DIR)/extra
++else
++    ifneq ($(OTA_PACKAGE_SIGNING_KEY),)
++	OTA_PUBLIC_KEYS := $(OTA_PACKAGE_SIGNING_KEY).x509.pem
++	PRODUCT_EXTRA_RECOVERY_KEYS := $(DEFAULT_SYSTEM_DEV_CERTIFICATE)
++    endif
+ endif
+ 
+ # Generate a file containing the keys that will be read by the
+@@ -1739,6 +1749,13 @@
+ $(BUILT_TARGET_FILES_PACKAGE): \
+ 		zip_root := $(intermediates)/$(name)
+ 
++SIGNED_TARGET_FILES_PACKAGE := $(intermediates)/signed-$(name).zip
++MAYBE_SIGNED_TARGET_FILES_PACKAGE := $(BUILT_TARGET_FILES_PACKAGE)
++
++ifneq ($(SIGNING_KEY_DIR),)
++  MAYBE_SIGNED_TARGET_FILES_PACKAGE := $(SIGNED_TARGET_FILES_PACKAGE)
++endif
++
+ # $(1): Directory to copy
+ # $(2): Location to copy it to
+ # The "ls -A" is to prevent "acp s/* d" from failing if s is empty.
+@@ -2090,6 +2107,12 @@
+     OTA_FROM_TARGET_SCRIPT := $(TARGET_RELEASETOOL_OTA_FROM_TARGET_SCRIPT)
+ endif
+ 
++ifeq ($(TARGET_RELEASETOOL_SIGN_TARGET_SCRIPT),)
++    SIGN_TARGET_SCRIPT := ./build/tools/releasetools/sign_target_files_apks
++else
++    SIGN_TARGET_SCRIPT := $(TARGET_RELEASETOOL_SIGN_TARGET_SCRIPT)
++endif
++
+ ifeq ($(WITH_GMS),true)
+     $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
+ else
+@@ -2117,7 +2140,16 @@
+     $(INTERNAL_OTA_PACKAGE_TARGET): block_based := --block
+ endif
+ 
+-$(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE)
++$(SIGNED_TARGET_FILES_PACKAGE): $(BUILT_TARGET_FILES_PACKAGE)
++	@echo "$(SIGN_TARGET_SCRIPT)" > $(PRODUCT_OUT)/sign_script_path
++	@echo -e ${CL_YLW}"Sign target files:"${CL_RST}" $@"
++	$(hide) $(SIGN_TARGET_SCRIPT) \
++	   -o \
++	   -d $(KEY_CERT_DIR) \
++	   $(BUILT_TARGET_FILES_PACKAGE) \
++   $(SIGNED_TARGET_FILES_PACKAGE)
++
++$(INTERNAL_OTA_PACKAGE_TARGET): $(MAYBE_SIGNED_TARGET_FILES_PACKAGE)
+ 	@echo "$(OTA_FROM_TARGET_SCRIPT)" > $(PRODUCT_OUT)/ota_script_path
+ 	@echo "$(override_device)" > $(PRODUCT_OUT)/ota_override_device
+ 	@echo "Package OTA:"" $@"
+@@ -2129,7 +2161,7 @@
+ 	   --backup=$(backuptool) \
+ 	   --override_device=$(override_device) $(override_prop) \
+ 	   $(if $(OEM_OTA_CONFIG), -o $(OEM_OTA_CONFIG)) \
+-	   $(BUILT_TARGET_FILES_PACKAGE) $@
++	   $(MAYBE_SIGNED_TARGET_FILES_PACKAGE) $@
+ 
+ CM_TARGET_PACKAGE := $(PRODUCT_OUT)/cm-$(CM_VERSION).zip
+ 
