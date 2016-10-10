@@ -1,0 +1,24 @@
+--- core/rootdir/init.rc.orig	2016-10-10 14:10:54.186009013 -0400
++++ core/rootdir/init.rc	2016-10-08 17:39:35.341530820 -0400
+@@ -133,6 +133,21 @@
+     write /proc/sys/net/ipv4/conf/all/accept_redirects 0
+     write /proc/sys/net/ipv6/conf/all/accept_redirects 0
+ 
++    # IPv4 hardening
++    #
++    # reverse path filtering is done with netfilter for consistency with IPv6
++    write /proc/sys/net/ipv4/tcp_rfc1337 1
++    write /proc/sys/net/ipv4/conf/all/accept_source_route 0
++    write /proc/sys/net/ipv4/conf/default/accept_source_route 0
++    write /proc/sys/net/ipv4/conf/default/accept_redirects 0
++    write /proc/sys/net/ipv4/conf/all/send_redirects 0
++    write /proc/sys/net/ipv4/conf/default/send_redirects 0
++
++    # IPv6 hardening
++    write /proc/sys/net/ipv6/conf/default/accept_redirects 0
++    write /proc/sys/net/ipv6/conf/all/use_tempaddr 2
++    write /proc/sys/net/ipv6/conf/default/use_tempaddr 2
++
+     # Create cgroup mount points for process groups
+     mkdir /dev/cpuctl
+     mount cgroup none /dev/cpuctl cpu
