@@ -15,6 +15,8 @@ to ../BoardConfig.mk (ie: your product's BoardConfig.mk).
 
 Documentation; https://source.android.com/devices/tech/dalvik/configure.html
 
+NOTE: For now, not using this on cm14 - seems to be not working correctly. I've had the odd app crash when using odex.
+
 # optional / Automated Key-signing Builds
 
 * 1) patch android_build to allow optional / automated key-signing to build
