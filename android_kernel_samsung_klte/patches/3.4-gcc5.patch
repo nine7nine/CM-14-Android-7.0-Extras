@@ -1,0 +1,281 @@
+diff -Nur a/arch/arm/include/asm/ftrace.h b/arch/arm/include/asm/ftrace.h
+--- a/arch/arm/include/asm/ftrace.h	2016-03-12 00:17:52.220459191 -0500
++++ b/arch/arm/include/asm/ftrace.h	2016-03-12 00:14:03.965693965 -0500
+@@ -45,7 +45,7 @@
+ 
+ #else
+ 
+-extern inline void *return_address(unsigned int level)
++static inline void *return_address(unsigned int level)
+ {
+ 	return NULL;
+ }
+diff -Nur a/arch/arm/kernel/return_address.c b/arch/arm/kernel/return_address.c
+--- a/arch/arm/kernel/return_address.c	2016-03-12 00:17:52.220459191 -0500
++++ b/arch/arm/kernel/return_address.c	2016-03-12 00:14:03.974694114 -0500
+@@ -62,11 +62,6 @@
+ #warning "TODO: return_address should use unwind tables"
+ #endif
+ 
+-void *return_address(unsigned int level)
+-{
+-	return NULL;
+-}
+-
+ #endif /* if defined(CONFIG_FRAME_POINTER) && !defined(CONFIG_ARM_UNWIND) / else */
+ 
+ EXPORT_SYMBOL_GPL(return_address);
+diff -Nur a/arch/arm/mach-msm/include/mach/qdsp6v2/apr.h b/arch/arm/mach-msm/include/mach/qdsp6v2/apr.h
+--- a/arch/arm/mach-msm/include/mach/qdsp6v2/apr.h	2016-03-12 00:17:52.220459191 -0500
++++ b/arch/arm/mach-msm/include/mach/qdsp6v2/apr.h	2016-03-12 00:14:04.057695483 -0500
+@@ -153,7 +153,7 @@
+ void apr_cb_func(void *buf, int len, void *priv);
+ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
+ 					uint32_t src_port, void *priv);
+-inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
++int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
+ 			uint16_t msg_type, uint16_t dest_port,
+ 			uint32_t token, uint32_t opcode, uint16_t len);
+ 
+diff -Nur a/drivers/gpu/msm/adreno_ringbuffer.c b/drivers/gpu/msm/adreno_ringbuffer.c
+--- a/drivers/gpu/msm/adreno_ringbuffer.c	2016-03-12 00:17:52.220459191 -0500
++++ b/drivers/gpu/msm/adreno_ringbuffer.c	2016-03-12 00:14:04.340700150 -0500
+@@ -212,7 +212,7 @@
+  *
+  * Load the pm4 ucode from @start at @addr.
+  */
+-inline int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device,
++static inline int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device,
+ 			unsigned int start, unsigned int end, unsigned int addr)
+ {
+ 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+@@ -266,7 +266,7 @@
+  *
+  * Load the pfp ucode from @start at @addr.
+  */
+-inline int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
++static inline int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
+ 			unsigned int start, unsigned int end, unsigned int addr)
+ {
+ 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+diff -Nur a/drivers/gpu/msm/kgsl_iommu.c b/drivers/gpu/msm/kgsl_iommu.c
+--- a/drivers/gpu/msm/kgsl_iommu.c	2016-03-12 00:17:52.220459191 -0500
++++ b/drivers/gpu/msm/kgsl_iommu.c	2016-03-12 00:14:04.341700167 -0500
+@@ -1002,7 +1002,7 @@
+  *
+  * Return - int - number of commands.
+  */
+-inline unsigned int kgsl_iommu_sync_lock(struct kgsl_mmu *mmu,
++static inline unsigned int kgsl_iommu_sync_lock(struct kgsl_mmu *mmu,
+ 						unsigned int *cmds)
+ {
+ 	struct kgsl_device *device = mmu->device;
+@@ -1072,7 +1072,7 @@
+  *
+  * Return - int - number of commands.
+  */
+-inline unsigned int kgsl_iommu_sync_unlock(struct kgsl_mmu *mmu,
++static inline unsigned int kgsl_iommu_sync_unlock(struct kgsl_mmu *mmu,
+ 					unsigned int *cmds)
+ {
+ 	struct kgsl_device *device = mmu->device;
+diff -Nur a/drivers/media/platform/msm/camera_v2/jpeg_10/msm_jpeg_sync.c b/drivers/media/platform/msm/camera_v2/jpeg_10/msm_jpeg_sync.c
+--- a/drivers/media/platform/msm/camera_v2/jpeg_10/msm_jpeg_sync.c	2016-03-12 00:17:52.221459207 -0500
++++ b/drivers/media/platform/msm/camera_v2/jpeg_10/msm_jpeg_sync.c	2016-03-12 00:14:04.557703729 -0500
+@@ -27,7 +27,7 @@
+ #define JPEG_DEC_ID     2
+ #define UINT32_MAX (0xFFFFFFFFU)
+ 
+-inline void msm_jpeg_q_init(char const *name, struct msm_jpeg_q *q_p)
++static inline void msm_jpeg_q_init(char const *name, struct msm_jpeg_q *q_p)
+ {
+ 	JPEG_DBG("%s:%d] %s\n", __func__, __LINE__, name);
+ 	q_p->name = name;
+@@ -37,7 +37,7 @@
+ 	q_p->unblck = 0;
+ }
+ 
+-inline void *msm_jpeg_q_out(struct msm_jpeg_q *q_p)
++static inline void *msm_jpeg_q_out(struct msm_jpeg_q *q_p)
+ {
+ 	unsigned long flags;
+ 	struct msm_jpeg_q_entry *q_entry_p = NULL;
+@@ -63,7 +63,7 @@
+ 	return data;
+ }
+ 
+-inline int msm_jpeg_q_in(struct msm_jpeg_q *q_p, void *data)
++static inline int msm_jpeg_q_in(struct msm_jpeg_q *q_p, void *data)
+ {
+ 	unsigned long flags;
+ 
+@@ -85,7 +85,7 @@
+ 	return 0;
+ }
+ 
+-inline int msm_jpeg_q_in_buf(struct msm_jpeg_q *q_p,
++static inline int msm_jpeg_q_in_buf(struct msm_jpeg_q *q_p,
+ 			     struct msm_jpeg_core_buf *buf)
+ {
+ 	struct msm_jpeg_core_buf *buf_p;
+@@ -103,7 +103,7 @@
+ 	return 0;
+ }
+ 
+-inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
++static inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
+ {
+ 	int tm = MAX_SCHEDULE_TIMEOUT; /* 500ms */
+ 	int rc;
+@@ -146,7 +146,7 @@
+ 	return 0;
+ }
+ 
+-inline void msm_jpeg_outbuf_q_cleanup(struct msm_jpeg_device *pgmn_dev,
++static inline void msm_jpeg_outbuf_q_cleanup(struct msm_jpeg_device *pgmn_dev,
+ 				      struct msm_jpeg_q *q_p, int domain_num)
+ {
+ 	struct msm_jpeg_core_buf *buf_p;
+@@ -164,7 +164,7 @@
+ 	q_p->unblck = 0;
+ }
+ 
+-inline void msm_jpeg_q_cleanup(struct msm_jpeg_q *q_p)
++static inline void msm_jpeg_q_cleanup(struct msm_jpeg_q *q_p)
+ {
+ 	void *data;
+ 
+diff -Nur a/drivers/media/platform/msm/vcap/vcap_vc.c b/drivers/media/platform/msm/vcap/vcap_vc.c
+--- a/drivers/media/platform/msm/vcap/vcap_vc.c	2016-03-12 00:17:52.221459207 -0500
++++ b/drivers/media/platform/msm/vcap/vcap_vc.c	2016-03-12 00:14:04.569703927 -0500
+@@ -129,7 +129,7 @@
+ 	return tv;
+ }
+ 
+-inline void vc_isr_error_checking(struct vcap_dev *dev,
++static inline void vc_isr_error_checking(struct vcap_dev *dev,
+ 		struct v4l2_event v4l2_evt, uint32_t irq)
+ {
+ 	if (irq & 0x200) {
+@@ -184,7 +184,7 @@
+ 	return done_count;
+ }
+ 
+-inline bool vc_isr_verify_expect_buf_rdy(struct vcap_dev *dev,
++static inline bool vc_isr_verify_expect_buf_rdy(struct vcap_dev *dev,
+ 		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt,
+ 		uint32_t irq, uint8_t done_count, uint8_t tot, uint8_t buf_num)
+ {
+@@ -204,7 +204,7 @@
+ 	return false;
+ }
+ 
+-inline void vc_isr_update_timestamp(struct vcap_dev *dev,
++static inline void vc_isr_update_timestamp(struct vcap_dev *dev,
+ 		struct vcap_client_data *c_data)
+ {
+ 	uint32_t timestamp;
+@@ -226,7 +226,7 @@
+ 	c_data->vc_action.last_ts = timestamp;
+ }
+ 
+-inline void vc_isr_no_new_buffer(struct vcap_dev *dev,
++static inline void vc_isr_no_new_buffer(struct vcap_dev *dev,
+ 		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt)
+ {
+ 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+@@ -241,7 +241,7 @@
+ 	atomic_inc(&dev->dbg_p.vc_drop_count);
+ }
+ 
+-inline void vc_isr_switch_buffers(struct vcap_dev *dev,
++static inline void vc_isr_switch_buffers(struct vcap_dev *dev,
+ 		struct vcap_client_data *c_data, struct vcap_buffer *buf,
+ 		struct vb2_buffer *vb, uint8_t idx, int done_count, int i)
+ {
+@@ -265,7 +265,7 @@
+ 	c_data->vc_action.buf[idx] = buf;
+ }
+ 
+-inline bool vc_isr_change_buffers(struct vcap_dev *dev,
++static inline bool vc_isr_change_buffers(struct vcap_dev *dev,
+ 		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt,
+ 		int done_count, uint8_t tot, uint8_t buf_num)
+ {
+diff -Nur a/drivers/video/msm/mdss/mdss_mdp_pp.c b/drivers/video/msm/mdss/mdss_mdp_pp.c
+--- a/drivers/video/msm/mdss/mdss_mdp_pp.c	2016-03-12 00:17:52.221459207 -0500
++++ b/drivers/video/msm/mdss/mdss_mdp_pp.c	2016-03-12 00:14:05.434718193 -0500
+@@ -4173,7 +4173,7 @@
+ 	mutex_lock(&ad->lock);
+ 	if ((!PP_AD_STATE_IS_INITCFG(ad->state) &&
+ 			!PP_AD_STS_IS_DIRTY(ad->sts)) &&
+-			!input->mode == MDSS_AD_MODE_CALIB) {
++			input->mode != MDSS_AD_MODE_CALIB) {
+ 		pr_warn("AD not initialized or configured.");
+ 		ret = -EPERM;
+ 		goto error;
+diff -Nur a/lib/decompress_unlzo.c b/lib/decompress_unlzo.c
+--- a/lib/decompress_unlzo.c	2016-03-12 00:17:52.222459224 -0500
++++ b/lib/decompress_unlzo.c	2016-03-12 00:14:05.899725862 -0500
+@@ -51,7 +51,7 @@
+ #define HEADER_SIZE_MIN       (9 + 7     + 4 + 8     + 1       + 4)
+ #define HEADER_SIZE_MAX       (9 + 7 + 1 + 8 + 8 + 4 + 1 + 255 + 4)
+ 
+-STATIC inline int INIT parse_header(u8 *input, int *skip, int in_len)
++STATIC int INIT parse_header(u8 *input, int *skip, int in_len)
+ {
+ 	int l;
+ 	u8 *parse = input;
+diff -Nur a/Makefile b/Makefile
+--- a/Makefile	2016-03-12 00:17:52.219459175 -0500
++++ b/Makefile	2016-03-12 00:14:03.914693124 -0500
+@@ -381,7 +381,8 @@
+ 		   -fno-strict-aliasing -fno-common \
+ 		   -Werror-implicit-function-declaration \
+ 		   -Wno-format-security \
+-		   -fno-delete-null-pointer-checks
++		   -fno-delete-null-pointer-checks \
++		   -Wbool-compare
+ KBUILD_AFLAGS_KERNEL :=
+ KBUILD_CFLAGS_KERNEL :=
+ KBUILD_AFLAGS   := -D__ASSEMBLY__
+diff -Nur a/mm/rmap.c b/mm/rmap.c
+--- a/mm/rmap.c	2016-03-12 00:17:52.222459224 -0500
++++ b/mm/rmap.c	2016-03-12 00:14:05.914726109 -0500
+@@ -563,7 +563,7 @@
+  * Returns virtual address or -EFAULT if page's index/offset is not
+  * within the range mapped the @vma.
+  */
+-inline unsigned long
++unsigned long
+ vma_address(struct page *page, struct vm_area_struct *vma)
+ {
+ 	pgoff_t pgoff = page->index << (PAGE_CACHE_SHIFT - PAGE_SHIFT);
+diff -Nur a/sound/soc/codecs/wcd9xxx-mbhc.c b/sound/soc/codecs/wcd9xxx-mbhc.c
+--- a/sound/soc/codecs/wcd9xxx-mbhc.c	2016-03-12 00:17:52.223459240 -0500
++++ b/sound/soc/codecs/wcd9xxx-mbhc.c	2016-03-12 00:14:06.109729325 -0500
+@@ -465,8 +465,8 @@
+ }
+ 
+ void *wcd9xxx_mbhc_cal_btn_det_mp(
+-			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
+-			    const enum wcd9xxx_mbhc_btn_det_mem mem)
++			    struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
++			    enum wcd9xxx_mbhc_btn_det_mem mem)
+ {
+ 	void *ret = &btn_det->_v_btn_low;
+ 
+diff -Nur a/sound/soc/codecs/wcd9xxx-mbhc.h b/sound/soc/codecs/wcd9xxx-mbhc.h
+--- a/sound/soc/codecs/wcd9xxx-mbhc.h	2016-03-12 00:17:52.223459240 -0500
++++ b/sound/soc/codecs/wcd9xxx-mbhc.h	2016-03-12 00:14:06.109729325 -0500
+@@ -440,8 +440,8 @@
+ 		      bool impedance_det_en);
+ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc);
+ void *wcd9xxx_mbhc_cal_btn_det_mp(
+-			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
+-			    const enum wcd9xxx_mbhc_btn_det_mem mem);
++			    struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
++			    enum wcd9xxx_mbhc_btn_det_mem mem);
+ int wcd9xxx_mbhc_get_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
+ 			       uint32_t *zr);
+ #endif /* __WCD9XXX_MBHC_H__ */

@@ -26,17 +26,6 @@ diff -Nur -X dontdiff a/arch/arm/Makefile b/arch/arm/Makefile
  ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
  KBUILD_CPPFLAGS	+= -mbig-endian
  AS		+= -EB
-diff -Nuarb a/arch/arm/Kconfig b/arch/arm/Kconfig
---- a/arch/arm/Kconfig	2016-06-09 13:25:41.799753538 -0400
-+++ b/arch/arm/Kconfig	2016-06-08 17:07:26.224976000 -0400
-@@ -804,6 +806,7 @@
- 	select NEED_MACH_MEMORY_H
- 	select NEED_MACH_IO_H
- 	select SOC_BUS
-+        select HAVE_CC_STACKPROTECTOR
- 	help
- 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
- 	  apps processor of the MSM/QSD and depends on a shared memory
 diff -Nur -X dontdiff a/arch/arm/boot/compressed/misc.c b/arch/arm/boot/compressed/misc.c
 --- a/arch/arm/boot/compressed/misc.c	2016-06-01 21:14:29.859934000 -0400
 +++ b/arch/arm/boot/compressed/misc.c	2016-06-03 13:11:18.513304760 -0400
@@ -120,6 +109,14 @@ diff -Nur -X dontdiff a/Makefile b/Makefile
 diff -Nur -X dontdiff a/arch/Kconfig b/arch/Kconfig
 --- a/arch/Kconfig	2016-06-01 21:15:08.670721000 -0400
 +++ b/arch/Kconfig	2016-06-03 13:17:15.870839324 -0400
+@@ -40,6 +40,7 @@
+ 	select CPU_PM if (SUSPEND || CPU_IDLE)
+ 	select GENERIC_PCI_IOMAP
+ 	select HAVE_BPF_JIT if NET
++        select HAVE_CC_STACKPROTECTOR
+ 	help
+ 	  The ARM series is a line of low-power-consumption RISC chip designs
+ 	  licensed by ARM Ltd and targeted at embedded applications and
 @@ -287,4 +287,71 @@
  	  This value can be changed after boot using the
  	  /proc/sys/vm/mmap_rnd_compat_bits tunable

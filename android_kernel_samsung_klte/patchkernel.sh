@@ -9,8 +9,8 @@ echo "
 Applying MISC KLTE/Galaxy S5 Kernel Patches
 
 "
-#echo "0"
-# patch -Np1 < ./patches/qdsp6v2_mm_fixup.patch 
+echo "0"
+patch -Np1 < ./patches/qdsp6v2_mm_fixup.patch 
 echo "1"
 patch -Np1 < ./patches/4-random-mac.patch
 echo "2"
@@ -22,8 +22,8 @@ patch -Np1 < ./patches/13-futex_cleanup_larger_table.patch
 echo "5"
 patch -Np1 < ./patches/14-optimizedARM-rwsem.patch 
 echo "6"
-patch -Np1 < ./patches/15-fix_samsung_types-mismatch.patch
-echo "7"
+#patch -Np1 < ./patches/15-fix_samsung_types-mismatch.patch
+#echo "7"
 patch -Np1 < ./patches/17-nvidia_power_efficiently_tweak.patch
 echo "8"
 patch -Np1 < ./patches/18-rwsem_mutex_scaling.patch 
