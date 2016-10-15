@@ -1,0 +1,61 @@
+From fa54c344d37380414e1cab5d037fe10301e6d38b Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 10 Jun 2016 15:47:18 -0400
+Subject: [PATCH 11/17] disable preloading other than shared libraries
+
+Chromium's custom linker breaks without shared library preloading.
+
+Change-Id: I37edd19361fafbedb13d17fa9f0526beaba8ac80
+---
+ core/java/com/android/internal/os/ZygoteInit.java | 32 +++++++++++------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/core/java/com/android/internal/os/ZygoteInit.java b/core/java/com/android/internal/os/ZygoteInit.java
+index 9c960c0..fb1ead6 100644
+--- a/core/java/com/android/internal/os/ZygoteInit.java
++++ b/core/java/com/android/internal/os/ZygoteInit.java
+@@ -190,25 +190,25 @@ public class ZygoteInit {
+ 
+     static void preload() {
+         Log.d(TAG, "begin preload");
+-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "BeginIcuCachePinning");
+-        beginIcuCachePinning();
+-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadClasses");
+-        preloadClasses();
+-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadResources");
+-        preloadResources();
+-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadOpenGL");
+-        preloadOpenGL();
+-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
++        //Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "BeginIcuCachePinning");
++        //beginIcuCachePinning();
++        //Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
++        //Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadClasses");
++        //preloadClasses();
++        //Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
++        //Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadResources");
++        //preloadResources();
++        //Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
++        //Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadOpenGL");
++        //preloadOpenGL();
++        //Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+         preloadSharedLibraries();
+-        preloadTextResources();
++        //preloadTextResources();
+         // Ask the WebViewFactory to do any initialization that must run in the zygote process,
+         // for memory sharing purposes.
+-        WebViewFactory.prepareWebViewInZygote();
+-        endIcuCachePinning();
+-        warmUpJcaProviders();
++        //WebViewFactory.prepareWebViewInZygote();
++        //endIcuCachePinning();
++        //warmUpJcaProviders();
+         Log.d(TAG, "end preload");
+     }
+ 
+-- 
+2.10.0
+

@@ -1,0 +1,28 @@
+From 1d92b977fbf70b84c15bfc3fa955dd8fb0a36701 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Thu, 19 May 2016 11:48:45 -0400
+Subject: [PATCH 09/17] limit platform signature permissions to system
+
+Change-Id: I75f5287b45f4c3e1087b55879f03b59bc2b50a02
+---
+ services/core/java/com/android/server/pm/PackageManagerService.java | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index 4e542e1c..e092015 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -10241,8 +10241,8 @@ public class PackageManagerService extends IPackageManager.Stub {
+         allowed = (compareSignatures(
+                 bp.packageSetting.signatures.mSignatures, pkg.mSignatures)
+                         == PackageManager.SIGNATURE_MATCH)
+-                || (compareSignatures(mPlatformPackage.mSignatures, pkg.mSignatures)
+-                        == PackageManager.SIGNATURE_MATCH);
++                || ((compareSignatures(mPlatformPackage.mSignatures, pkg.mSignatures)
++                        == PackageManager.SIGNATURE_MATCH) && isSystemApp(pkg));
+         if (!allowed && (bp.protectionLevel
+                 & PermissionInfo.PROTECTION_FLAG_PRIVILEGED) != 0) {
+             if (isSystemApp(pkg)) {
+-- 
+2.10.0
+

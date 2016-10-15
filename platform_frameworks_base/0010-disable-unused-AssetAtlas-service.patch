@@ -1,0 +1,66 @@
+From 5681cfa61af79ba67db0613aeff8ce0dc56aaed9 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 10 Jun 2016 02:51:52 -0400
+Subject: [PATCH 10/17] disable unused AssetAtlas service
+
+This optimization is not compatible with exec-based spawning, so the
+service might as well be removed.
+
+Change-Id: I6f596c7e069e72870cab8796b0e700e31f7b1d09
+---
+ services/java/com/android/server/SystemServer.java | 18 ------------------
+ 1 file changed, 18 deletions(-)
+
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index f59b2ff..a1c4838 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -657,7 +657,6 @@ public final class SystemServer {
+         LocationManagerService location = null;
+         CountryDetectorService countryDetector = null;
+         ILockSettings lockSettings = null;
+-        AssetAtlasService atlas = null;
+         MediaRouterService mediaRouter = null;
+ 
+         // Bring up services needed for UI.
+@@ -1082,17 +1081,6 @@ public final class SystemServer {
+                 mSystemServiceManager.startService(DreamManagerService.class);
+             }
+ 
+-            if (!disableNonCoreServices && ZygoteInit.PRELOAD_RESOURCES) {
+-                traceBeginAndSlog("StartAssetAtlasService");
+-                try {
+-                    atlas = new AssetAtlasService(context);
+-                    ServiceManager.addService(AssetAtlasService.ASSET_ATLAS_SERVICE, atlas);
+-                } catch (Throwable e) {
+-                    reportWtf("starting AssetAtlasService", e);
+-                }
+-                Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
+-            }
+-
+             if (!disableNonCoreServices) {
+                 ServiceManager.addService(GraphicsStatsService.GRAPHICS_STATS_SERVICE,
+                         new GraphicsStatsService(context));
+@@ -1266,7 +1254,6 @@ public final class SystemServer {
+         final CountryDetectorService countryDetectorF = countryDetector;
+         final NetworkTimeUpdateService networkTimeUpdaterF = networkTimeUpdater;
+         final CommonTimeManagementService commonTimeMgmtServiceF = commonTimeMgmtService;
+-        final AssetAtlasService atlasF = atlas;
+         final InputManagerService inputManagerF = inputManager;
+         final TelephonyRegistry telephonyRegistryF = telephonyRegistry;
+         final MediaRouterService mediaRouterF = mediaRouter;
+@@ -1375,11 +1362,6 @@ public final class SystemServer {
+                     reportWtf("Notifying CommonTimeManagementService running", e);
+                 }
+                 try {
+-                    if (atlasF != null) atlasF.systemRunning();
+-                } catch (Throwable e) {
+-                    reportWtf("Notifying AssetAtlasService running", e);
+-                }
+-                try {
+                     // TODO(BT) Pass parameter to input manager
+                     if (inputManagerF != null) inputManagerF.systemRunning();
+                 } catch (Throwable e) {
+-- 
+2.10.0
+

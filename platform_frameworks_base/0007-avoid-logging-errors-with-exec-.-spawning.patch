@@ -1,0 +1,30 @@
+From 4bc8e61e94feecf1d9f960af743de86e7d01fdcf Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 18 Sep 2015 15:03:45 -0400
+Subject: [PATCH 07/17] avoid logging errors with exec(...) spawning
+
+In alternative spawning models like WrapperInit based on exec(...), this
+code runs as non-root so it can't work. It currently forks and then hits
+a fatal error when it tries to do setgid(AID_SYSTEM).
+
+Change-Id: Ibc807da469a39c85ad8669b3f4017f961be7f61f
+---
+ core/jni/android_util_AssetManager.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/core/jni/android_util_AssetManager.cpp b/core/jni/android_util_AssetManager.cpp
+index 3473d9d..716744d 100644
+--- a/core/jni/android_util_AssetManager.cpp
++++ b/core/jni/android_util_AssetManager.cpp
+@@ -2078,7 +2078,7 @@
+ 
+ static void android_content_AssetManager_init(JNIEnv* env, jobject clazz, jboolean isSystem)
+ {
+-    if (isSystem) {
++    if (isSystem && getuid() == 0) {
+         // Load frameworks-res.apk's overlay through regionalization environment
+         if (Environment::isSupported()) {
+             Environment* environment = new Environment();
+-- 
+2.10.0
+

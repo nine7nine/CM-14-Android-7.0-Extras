@@ -1,0 +1,33 @@
+From 514fe7f117db62704d8759d83c27ad8fc3ccbf8b Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Wed, 31 Aug 2016 18:06:31 -0400
+Subject: [PATCH 14/17] disable ExecInit for com.android.bluetooth for now
+
+Change-Id: I65a48f0621d84edb884d5f6cd28187aeb2774b93
+---
+ core/java/com/android/internal/os/ZygoteConnection.java | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/com/android/internal/os/ZygoteConnection.java b/core/java/com/android/internal/os/ZygoteConnection.java
+index 1b18014..e05fe14 100644
+--- a/core/java/com/android/internal/os/ZygoteConnection.java
++++ b/core/java/com/android/internal/os/ZygoteConnection.java
+@@ -754,8 +754,13 @@ class ZygoteConnection {
+                     VMRuntime.getCurrentInstructionSet(),
+                     pipeFd, parsedArgs.remainingArgs);
+         } else {
+-            ExecInit.execApplication(parsedArgs.niceName, parsedArgs.targetSdkVersion,
+-                    VMRuntime.getCurrentInstructionSet(), parsedArgs.remainingArgs);
++            if ("com.android.bluetooth".equals(parsedArgs.niceName)) {
++                RuntimeInit.zygoteInit(parsedArgs.targetSdkVersion,
++                        parsedArgs.remainingArgs, null /* classLoader */);
++            } else {
++                ExecInit.execApplication(parsedArgs.niceName, parsedArgs.targetSdkVersion,
++                        VMRuntime.getCurrentInstructionSet(), parsedArgs.remainingArgs);
++            }
+         }
+     }
+ 
+-- 
+2.10.0
+

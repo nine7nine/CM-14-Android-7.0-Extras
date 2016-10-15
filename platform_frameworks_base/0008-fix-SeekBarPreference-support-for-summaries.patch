@@ -1,0 +1,31 @@
+From 352e775d4c08a8d44b4fe80d2e973b6e6af51697 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Wed, 9 Mar 2016 20:56:56 -0500
+Subject: [PATCH 08/17] fix SeekBarPreference support for summaries
+
+Overriding getSummary breaks support for summaries even though it's
+supported in the layout for SeekBarPreference. If there's no summary the
+return value is already null in the inherited implementation.
+---
+ core/java/android/preference/SeekBarPreference.java | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/core/java/android/preference/SeekBarPreference.java b/core/java/android/preference/SeekBarPreference.java
+index 5414f00..1fabf3d 100644
+--- a/core/java/android/preference/SeekBarPreference.java
++++ b/core/java/android/preference/SeekBarPreference.java
+@@ -79,11 +79,6 @@ public class SeekBarPreference extends Preference
+     }
+ 
+     @Override
+-    public CharSequence getSummary() {
+-        return null;
+-    }
+-
+-    @Override
+     protected void onSetInitialValue(boolean restoreValue, Object defaultValue) {
+         setProgress(restoreValue ? getPersistedInt(mProgress)
+                 : (Integer) defaultValue);
+-- 
+2.10.0
+

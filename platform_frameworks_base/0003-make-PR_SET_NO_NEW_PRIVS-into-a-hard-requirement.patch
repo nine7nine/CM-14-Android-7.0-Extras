@@ -1,0 +1,31 @@
+From 4c1d661b592f3a387a0c48a620f4dc3c76a7b5d7 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Thu, 21 May 2015 23:49:19 -0400
+Subject: [PATCH 03/17] make PR_SET_NO_NEW_PRIVS into a hard requirement
+
+---
+ cmds/app_process/app_main.cpp | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/cmds/app_process/app_main.cpp b/cmds/app_process/app_main.cpp
+index 2e02382..6694207 100644
+--- a/cmds/app_process/app_main.cpp
++++ b/cmds/app_process/app_main.cpp
+@@ -186,12 +186,8 @@ static const char ZYGOTE_NICE_NAME[] = "zygote";
+ int main(int argc, char* const argv[])
+ {
+     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+-        // Older kernels don't understand PR_SET_NO_NEW_PRIVS and return
+-        // EINVAL. Don't die on such kernels.
+-        if (errno != EINVAL) {
+-            LOG_ALWAYS_FATAL("PR_SET_NO_NEW_PRIVS failed: %s", strerror(errno));
+-            return 12;
+-        }
++        LOG_ALWAYS_FATAL("PR_SET_NO_NEW_PRIVS failed: %s", strerror(errno));
++        return 12;
+     }
+ 
+     AppRuntime runtime(argv[0], computeArgBlockSize(argc, argv));
+-- 
+2.10.0
+
