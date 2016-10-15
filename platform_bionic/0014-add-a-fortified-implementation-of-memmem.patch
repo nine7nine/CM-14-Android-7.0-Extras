@@ -1,0 +1,240 @@
+From 95204240215ebb6c0573f2e83f4bb35bb599f422 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Tue, 26 Jan 2016 09:27:53 -0500
+Subject: [PATCH 14/58] add a fortified implementation of memmem
+
+Change-Id: I2c5d4484b013624a84d84c1676b3b8727d7c6032
+---
+ libc/Android.mk              |  1 +
+ libc/bionic/__memmem_chk.cpp | 40 ++++++++++++++++++++++++++++++++++++++++
+ libc/include/string.h        | 31 +++++++++++++++++++++++++++++++
+ libc/libc.arm.brillo.map     |  1 +
+ libc/libc.arm.map            |  1 +
+ libc/libc.arm64.map          |  1 +
+ libc/libc.mips.brillo.map    |  1 +
+ libc/libc.mips.map           |  1 +
+ libc/libc.mips64.map         |  1 +
+ libc/libc.x86.brillo.map     |  1 +
+ libc/libc.x86.map            |  1 +
+ libc/libc.x86_64.map         |  1 +
+ 12 files changed, 81 insertions(+)
+ create mode 100644 libc/bionic/__memmem_chk.cpp
+
+diff --git a/libc/Android.mk b/libc/Android.mk
+index 0404fac..0d933cb 100644
+--- a/libc/Android.mk
++++ b/libc/Android.mk
+@@ -74,6 +74,7 @@ libc_common_src_files += \
+     bionic/__getcwd_chk.cpp \
+     bionic/__memchr_chk.cpp \
+     bionic/__memcmp_chk.cpp \
++    bionic/__memmem_chk.cpp \
+     bionic/__memmove_chk.cpp \
+     bionic/__memrchr_chk.cpp \
+     bionic/__poll_chk.cpp \
+diff --git a/libc/bionic/__memmem_chk.cpp b/libc/bionic/__memmem_chk.cpp
+new file mode 100644
+index 0000000..c00b9f2
+--- /dev/null
++++ b/libc/bionic/__memmem_chk.cpp
+@@ -0,0 +1,40 @@
++/*
++ * Copyright (C) 2016 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#undef _FORTIFY_SOURCE
++#include <string.h>
++#include "private/libc_logging.h"
++
++extern "C" void* __memmem_chk(const void* haystack, size_t haystacklen, size_t buf_size_haystack,
++                              const void* needle, size_t needlelen, size_t buf_size_needle) {
++  if (__predict_false(haystacklen > buf_size_haystack || needlelen > buf_size_needle)) {
++    __fortify_chk_fail("memmem: prevented read past end of buffer", 0);
++  }
++
++  return memmem(haystack, haystacklen, needle, needlelen);
++}
+diff --git a/libc/include/string.h b/libc/include/string.h
+index 81df0eb..089ec2a 100644
+--- a/libc/include/string.h
++++ b/libc/include/string.h
+@@ -142,6 +142,10 @@ extern int __memcmp_chk(const void*, const void*, size_t, size_t, size_t);
+ __errordecl(__memcmp_buf_size_error, "memcmp called with size bigger than buffer");
+ extern int __memcmp_real(const void*, const void*, size_t) __RENAME(memcmp);
+ 
++extern void* __memmem_chk(const void *, size_t, size_t, const void *, size_t, size_t);
++__errordecl(__memmem_buf_size_error, "memmem called with size bigger than buffer");
++extern void* __memmem_real(const void *, size_t, const void *, size_t) __RENAME(memmem);
++
+ extern char* __stpncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
+ extern char* __strncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
+ extern size_t __strlcpy_real(char* __restrict, const char* __restrict, size_t) __RENAME(strlcpy);
+@@ -220,6 +224,33 @@ int memcmp(const void* a, const void* b, size_t n) {
+ }
+ 
+ __BIONIC_FORTIFY_INLINE
++void* memmem(const void* haystack, size_t haystacklen, const void* needle, size_t needlelen) {
++    size_t bos_haystack = __bos0(haystack);
++    size_t bos_needle = __bos0(needle);
++
++#if !defined(__clang__)
++    if (bos_haystack == __BIONIC_FORTIFY_UNKNOWN_SIZE && bos_needle == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
++        return __memmem_real(haystack, haystacklen, needle, needlelen);
++    }
++
++    if (__builtin_constant_p(haystacklen) && haystacklen > bos_haystack) {
++        __memmem_buf_size_error();
++    }
++
++    if (__builtin_constant_p(needlelen) && needlelen > bos_needle) {
++        __memmem_buf_size_error();
++    }
++
++    if ((__builtin_constant_p(haystacklen) && haystacklen <= bos_haystack &&
++         __builtin_constant_p(needlelen) && needlelen <= bos_needle)) {
++        return __memmem_real(haystack, haystacklen, needle, needlelen);
++    }
++#endif
++
++    return __memmem_chk(haystack, haystacklen, bos_haystack, needle, needlelen, bos_needle);
++}
++
++__BIONIC_FORTIFY_INLINE
+ void* memcpy(void* __restrict dest, const void* __restrict src, size_t copy_amount) {
+     return __builtin___memcpy_chk(dest, src, copy_amount, __bos0(dest));
+ }
+diff --git a/libc/libc.arm.brillo.map b/libc/libc.arm.brillo.map
+index 05acf6b..a0d334c 100644
+--- a/libc/libc.arm.brillo.map
++++ b/libc/libc.arm.brillo.map
+@@ -72,6 +72,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.arm.map b/libc/libc.arm.map
+index 9a0653a..1927c09 100644
+--- a/libc/libc.arm.map
++++ b/libc/libc.arm.map
+@@ -72,6 +72,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.arm64.map b/libc/libc.arm64.map
+index 4de6877..f0133b5 100644
+--- a/libc/libc.arm64.map
++++ b/libc/libc.arm64.map
+@@ -55,6 +55,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.mips.brillo.map b/libc/libc.mips.brillo.map
+index 98923b1..80dd4ca 100644
+--- a/libc/libc.mips.brillo.map
++++ b/libc/libc.mips.brillo.map
+@@ -69,6 +69,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.mips.map b/libc/libc.mips.map
+index 9eb249e..25314f2 100644
+--- a/libc/libc.mips.map
++++ b/libc/libc.mips.map
+@@ -69,6 +69,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.mips64.map b/libc/libc.mips64.map
+index 4de6877..f0133b5 100644
+--- a/libc/libc.mips64.map
++++ b/libc/libc.mips64.map
+@@ -55,6 +55,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.x86.brillo.map b/libc/libc.x86.brillo.map
+index 53fc77b..4a7dffc 100644
+--- a/libc/libc.x86.brillo.map
++++ b/libc/libc.x86.brillo.map
+@@ -69,6 +69,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.x86.map b/libc/libc.x86.map
+index 6c6ead3..4c27ce8 100644
+--- a/libc/libc.x86.map
++++ b/libc/libc.x86.map
+@@ -69,6 +69,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+diff --git a/libc/libc.x86_64.map b/libc/libc.x86_64.map
+index 4de6877..f0133b5 100644
+--- a/libc/libc.x86_64.map
++++ b/libc/libc.x86_64.map
+@@ -55,6 +55,7 @@ LIBC {
+     __memchr_chk;
+     __memcmp_chk;
+     __memcpy_chk;
++    __memmem_chk;
+     __memmove_chk;
+     __memrchr_chk;
+     __memset_chk;
+-- 
+2.10.0
+

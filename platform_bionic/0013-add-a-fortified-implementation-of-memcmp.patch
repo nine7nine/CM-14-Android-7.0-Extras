@@ -1,0 +1,239 @@
+From 8d976c432efbeb19791cab27236d151eb4d1e7fa Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Tue, 26 Jan 2016 02:29:23 -0500
+Subject: [PATCH 13/58] add a fortified implementation of memcmp
+
+Change-Id: I23bccb50d9e9080c111409a84c00fd12f59ce4fd
+---
+ libc/Android.mk              |  1 +
+ libc/bionic/__memcmp_chk.cpp | 40 ++++++++++++++++++++++++++++++++++++++++
+ libc/include/string.h        | 30 ++++++++++++++++++++++++++++++
+ libc/libc.arm.brillo.map     |  1 +
+ libc/libc.arm.map            |  1 +
+ libc/libc.arm64.map          |  1 +
+ libc/libc.mips.brillo.map    |  1 +
+ libc/libc.mips.map           |  1 +
+ libc/libc.mips64.map         |  1 +
+ libc/libc.x86.brillo.map     |  1 +
+ libc/libc.x86.map            |  1 +
+ libc/libc.x86_64.map         |  1 +
+ 12 files changed, 80 insertions(+)
+ create mode 100644 libc/bionic/__memcmp_chk.cpp
+
+diff --git a/libc/Android.mk b/libc/Android.mk
+index bb02fe3..0404fac 100644
+--- a/libc/Android.mk
++++ b/libc/Android.mk
+@@ -73,6 +73,7 @@ libc_common_src_files += \
+     bionic/__fwrite_chk.cpp \
+     bionic/__getcwd_chk.cpp \
+     bionic/__memchr_chk.cpp \
++    bionic/__memcmp_chk.cpp \
+     bionic/__memmove_chk.cpp \
+     bionic/__memrchr_chk.cpp \
+     bionic/__poll_chk.cpp \
+diff --git a/libc/bionic/__memcmp_chk.cpp b/libc/bionic/__memcmp_chk.cpp
+new file mode 100644
+index 0000000..2c40649
+--- /dev/null
++++ b/libc/bionic/__memcmp_chk.cpp
+@@ -0,0 +1,40 @@
++/*
++ * Copyright (C) 2016 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#undef _FORTIFY_SOURCE
++#include <string.h>
++#include "private/libc_logging.h"
++
++extern "C" int __memcmp_chk(const void* a, const void* b, size_t n, size_t buf_size_a,
++                            size_t buf_size_b) {
++  if (__predict_false(n > buf_size_a || n > buf_size_b)) {
++    __fortify_chk_fail("memcmp: prevented read past end of buffer", 0);
++  }
++
++  return memcmp(a, b, n);
++}
+diff --git a/libc/include/string.h b/libc/include/string.h
+index 74cb25b..81df0eb 100644
+--- a/libc/include/string.h
++++ b/libc/include/string.h
+@@ -138,6 +138,10 @@ extern void* __memrchr_chk(const void*, int, size_t, size_t);
+ __errordecl(__memrchr_buf_size_error, "memrchr called with size bigger than buffer");
+ extern void* __memrchr_real(const void*, int, size_t) __RENAME(memrchr);
+ 
++extern int __memcmp_chk(const void*, const void*, size_t, size_t, size_t);
++__errordecl(__memcmp_buf_size_error, "memcmp called with size bigger than buffer");
++extern int __memcmp_real(const void*, const void*, size_t) __RENAME(memcmp);
++
+ extern char* __stpncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
+ extern char* __strncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
+ extern size_t __strlcpy_real(char* __restrict, const char* __restrict, size_t) __RENAME(strlcpy);
+@@ -190,6 +194,32 @@ void* memrchr(const void *s, int c, size_t n) {
+ }
+ 
+ __BIONIC_FORTIFY_INLINE
++int memcmp(const void* a, const void* b, size_t n) {
++    size_t bos_a = __bos0(a);
++    size_t bos_b = __bos0(b);
++
++#if !defined(__clang__)
++    if (bos_a == __BIONIC_FORTIFY_UNKNOWN_SIZE && bos_b == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
++        return __memcmp_real(a, b, n);
++    }
++
++    if (__builtin_constant_p(n) && n > bos_a) {
++        __memcmp_buf_size_error();
++    }
++
++    if (__builtin_constant_p(n) && n > bos_b) {
++        __memcmp_buf_size_error();
++    }
++
++    if (__builtin_constant_p(n) && n <= bos_a && n <= bos_b) {
++        return __memcmp_real(a, b, n);
++    }
++#endif
++
++    return __memcmp_chk(a, b, n, bos_a, bos_b);
++}
++
++__BIONIC_FORTIFY_INLINE
+ void* memcpy(void* __restrict dest, const void* __restrict src, size_t copy_amount) {
+     return __builtin___memcpy_chk(dest, src, copy_amount, __bos0(dest));
+ }
+diff --git a/libc/libc.arm.brillo.map b/libc/libc.arm.brillo.map
+index 9da135d..05acf6b 100644
+--- a/libc/libc.arm.brillo.map
++++ b/libc/libc.arm.brillo.map
+@@ -70,6 +70,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.arm.map b/libc/libc.arm.map
+index dc057d8..9a0653a 100644
+--- a/libc/libc.arm.map
++++ b/libc/libc.arm.map
+@@ -70,6 +70,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.arm64.map b/libc/libc.arm64.map
+index c6e3753..4de6877 100644
+--- a/libc/libc.arm64.map
++++ b/libc/libc.arm64.map
+@@ -53,6 +53,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.mips.brillo.map b/libc/libc.mips.brillo.map
+index af6be54..98923b1 100644
+--- a/libc/libc.mips.brillo.map
++++ b/libc/libc.mips.brillo.map
+@@ -67,6 +67,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.mips.map b/libc/libc.mips.map
+index 82eded3..9eb249e 100644
+--- a/libc/libc.mips.map
++++ b/libc/libc.mips.map
+@@ -67,6 +67,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.mips64.map b/libc/libc.mips64.map
+index c6e3753..4de6877 100644
+--- a/libc/libc.mips64.map
++++ b/libc/libc.mips64.map
+@@ -53,6 +53,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.x86.brillo.map b/libc/libc.x86.brillo.map
+index bcd8a21..53fc77b 100644
+--- a/libc/libc.x86.brillo.map
++++ b/libc/libc.x86.brillo.map
+@@ -67,6 +67,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.x86.map b/libc/libc.x86.map
+index 0c32222..6c6ead3 100644
+--- a/libc/libc.x86.map
++++ b/libc/libc.x86.map
+@@ -67,6 +67,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+diff --git a/libc/libc.x86_64.map b/libc/libc.x86_64.map
+index c6e3753..4de6877 100644
+--- a/libc/libc.x86_64.map
++++ b/libc/libc.x86_64.map
+@@ -53,6 +53,7 @@ LIBC {
+     __loc_aton;
+     __loc_ntoa;
+     __memchr_chk;
++    __memcmp_chk;
+     __memcpy_chk;
+     __memmove_chk;
+     __memrchr_chk;
+-- 
+2.10.0
+

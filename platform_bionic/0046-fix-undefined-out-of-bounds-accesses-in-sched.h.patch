@@ -1,0 +1,29 @@
+From 70863f439c2911cfab4b6893ea110032896610fe Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Mon, 19 Sep 2016 07:57:43 -0400
+Subject: [PATCH 46/58] fix undefined out-of-bounds accesses in sched.h
+
+Change-Id: I5e8df1ef78907ba1f5485965a4944d2b6f6e7e1a
+---
+ libc/include/sched.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/libc/include/sched.h b/libc/include/sched.h
+index 0b9235b..b9e60fd 100644
+--- a/libc/include/sched.h
++++ b/libc/include/sched.h
+@@ -69,7 +69,10 @@ extern int setns(int, int);
+ #define __CPU_MASK(x)  ((__CPU_BITTYPE)1 << ((x) & (__CPU_BITS - 1)))
+ 
+ typedef struct {
+-  __CPU_BITTYPE  __bits[ CPU_SETSIZE / __CPU_BITS ];
++  union {
++    __CPU_BITTYPE  __bits_minimum[ CPU_SETSIZE / __CPU_BITS ];
++    __CPU_BITTYPE  __bits[0];
++  };
+ } cpu_set_t;
+ 
+ extern int sched_setaffinity(pid_t pid, size_t setsize, const cpu_set_t* set);
+-- 
+2.10.0
+

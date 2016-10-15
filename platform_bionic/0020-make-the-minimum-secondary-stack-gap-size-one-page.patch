@@ -1,0 +1,25 @@
+From 10c5b2dce1a6897dbcbc3ce15ed33b68da2de7a1 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 11 Dec 2015 15:01:08 -0500
+Subject: [PATCH 20/58] make the minimum secondary stack gap size one page
+
+---
+ libc/bionic/pthread_create.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libc/bionic/pthread_create.cpp b/libc/bionic/pthread_create.cpp
+index d347a1c..f68c918 100644
+--- a/libc/bionic/pthread_create.cpp
++++ b/libc/bionic/pthread_create.cpp
+@@ -162,7 +162,7 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
+     size_t max_gap_size = attr->stack_size / 10;
+ #endif
+ 
+-    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE);
++    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE) + PAGE_SIZE;
+ 
+     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
+     size_t stack_size = BIONIC_ALIGN(attr->stack_size + PAGE_SIZE, PAGE_SIZE);
+-- 
+2.10.0
+

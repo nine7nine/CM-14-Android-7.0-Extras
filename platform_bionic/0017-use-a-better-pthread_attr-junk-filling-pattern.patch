@@ -1,0 +1,26 @@
+From c5701f9d544b94452b7a89a0a4a8d6e81bfb551d Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 29 Jan 2016 20:20:09 -0500
+Subject: [PATCH 17/58] use a better pthread_attr junk filling pattern
+
+Guarantee that junk filled pointers will fault.
+---
+ libc/bionic/pthread_attr.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libc/bionic/pthread_attr.cpp b/libc/bionic/pthread_attr.cpp
+index cfa58fc..bfcc714 100644
+--- a/libc/bionic/pthread_attr.cpp
++++ b/libc/bionic/pthread_attr.cpp
+@@ -49,7 +49,7 @@ int pthread_attr_init(pthread_attr_t* attr) {
+ }
+ 
+ int pthread_attr_destroy(pthread_attr_t* attr) {
+-  memset(attr, 0x42, sizeof(pthread_attr_t));
++  memset(attr, 0xdf, sizeof(pthread_attr_t));
+   return 0;
+ }
+ 
+-- 
+2.10.0
+

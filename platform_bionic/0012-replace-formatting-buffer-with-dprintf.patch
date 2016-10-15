@@ -1,0 +1,42 @@
+From 7a07247aa4290d168ab9c9aa7de62fd211908546 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Sat, 16 Jul 2016 23:55:16 -0400
+Subject: [PATCH 12/58] replace formatting buffer with dprintf
+
+---
+ libc/bionic/bionic_systrace.cpp | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
+
+diff --git a/libc/bionic/bionic_systrace.cpp b/libc/bionic/bionic_systrace.cpp
+index b522b10..be01505 100644
+--- a/libc/bionic/bionic_systrace.cpp
++++ b/libc/bionic/bionic_systrace.cpp
+@@ -28,8 +28,6 @@
+ #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
+ #include <sys/_system_properties.h>
+ 
+-#define WRITE_OFFSET   32
+-
+ constexpr char SYSTRACE_PROPERTY_NAME[] = "debug.atrace.tags.enableflags";
+ 
+ static Lock g_lock;
+@@ -91,15 +89,9 @@ ScopedTrace::ScopedTrace(const char* message) {
+     return;
+   }
+ 
+-  // If bionic tracing has been enabled, then write the message to the
+-  // kernel trace_marker.
+-  int length = strlen(message);
+-  char buf[length + WRITE_OFFSET];
+-  size_t len = snprintf(buf, length + WRITE_OFFSET, "B|%d|%s", getpid(), message);
+-
+   // Tracing may stop just after checking property and before writing the message.
+   // So the write is acceptable to fail. See b/20666100.
+-  TEMP_FAILURE_RETRY(write(trace_marker_fd, buf, len));
++  dprintf(trace_marker_fd, "B|%d|%s", getpid(), message);
+ }
+ 
+ ScopedTrace::~ScopedTrace() {
+-- 
+2.10.0
+

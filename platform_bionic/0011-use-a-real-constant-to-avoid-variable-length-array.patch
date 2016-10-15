@@ -1,0 +1,32 @@
+From 1bea548795e8b326762845295fd2869c5ce72918 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Sun, 17 Jul 2016 00:01:57 -0400
+Subject: [PATCH 11/58] use a real constant to avoid variable-length array
+
+Since this is C rather than C++, 'static const' isn't actually a real
+constant and the arrays using it as a size are really variable length
+arrays, including the nested type definition. It would be nice to avoid
+this for simplicity.
+
+Change-Id: Id3fa84e5cd853c6c85f80147039fa9893496ada5
+---
+ libc/tzcode/localtime.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/libc/tzcode/localtime.c b/libc/tzcode/localtime.c
+index f370e87..2d54999 100644
+--- a/libc/tzcode/localtime.c
++++ b/libc/tzcode/localtime.c
+@@ -2405,7 +2405,8 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
+     return -1;
+   }
+ 
+-  static const size_t NAME_LENGTH = 40;
++  enum { NAME_LENGTH = 40 };
++
+   struct index_entry_t {
+     char buf[NAME_LENGTH];
+     int32_t start;
+-- 
+2.10.0
+

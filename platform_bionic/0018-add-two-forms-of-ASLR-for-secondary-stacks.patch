@@ -1,0 +1,178 @@
+From b5bb991ef901213cc3d8b7c18cfdae5af696a1fa Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 4 Dec 2015 02:51:43 -0500
+Subject: [PATCH 18/58] add two forms of ASLR for secondary stacks
+
+A randomly sized mapping is placed above secondary stacks mapped by
+libc, up to 10% as large as the stack on 32-bit and 50% on 64-bit where
+virtual memory is plentiful (there's no increase to pss). This makes
+exploits involving overflows from the stack unreliable. It also slightly
+reduces the utility of a leaked stack address as the location of data
+above the stack won't be precisely known. There is no change to the
+pthread API as it's accounted for separately from the stack itself. It's
+essentially a userspace implementation of grsecurity's RAND_THREADSTACK,
+although it triggers a segmentation fault instead of immediate death.
+
+The initial stack pointer is also placed at a random offset within the
+initial page, using up to 1% of the stack's memory. The granularity of
+this randomization is determined by the minimum stack alignment which is
+currently assumed to be 16. This provides up to 8-bit entropy with
+typical 4096 byte pages and the default stack size is large enough to
+get the full benefit. It makes exploits requiring precise offsets from
+or into the stack unreliable and also provides cache coloring, improving
+performance for threads with similar data layout on the stack.
+
+Sample program:
+
+    #include <stdio.h>
+
+    void *print_base(void *data) {
+        char stack_value;
+        printf("%p\n", &stack_value);
+        return data;
+    }
+
+    int main(void) {
+        pthread_t thread;
+        for (unsigned i = 0; i < 10; i++) {
+            if (pthread_create(&thread, NULL, print_base, NULL)) {
+                return 1;
+            }
+            if (pthread_join(thread, NULL)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+Output:
+
+0xaa890d8f
+0xaa88beaf
+0xaa88d83f
+0xaa88a07f
+0xaa8872ef
+0xaa88593f
+0xaa881b0f
+0xaa88fc9f
+0xaa88726f
+0xaa885b5f
+
+Change-Id: I505eee371c67af86263210535e091ca7665d3891
+---
+ libc/bionic/pthread_create.cpp | 51 ++++++++++++++++++++++++++++++++++--------
+ libc/private/bionic_macros.h   |  3 +++
+ 2 files changed, 45 insertions(+), 9 deletions(-)
+
+diff --git a/libc/bionic/pthread_create.cpp b/libc/bionic/pthread_create.cpp
+index 34826db..a02231c 100644
+--- a/libc/bionic/pthread_create.cpp
++++ b/libc/bionic/pthread_create.cpp
+@@ -29,6 +29,7 @@
+ #include <pthread.h>
+ 
+ #include <errno.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include <sys/mman.h>
+ #include <unistd.h>
+@@ -112,11 +113,10 @@ int __init_thread(pthread_internal_t* thread) {
+   return error;
+ }
+ 
+-static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_size) {
++static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_size, size_t gap_size) {
+   // Create a new private anonymous map.
+-  int prot = PROT_READ | PROT_WRITE;
+   int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
+-  void* space = mmap(NULL, mmap_size, prot, flags, -1, 0);
++  void* space = mmap(nullptr, mmap_size, PROT_NONE, flags, -1, 0);
+   if (space == MAP_FAILED) {
+     __libc_format_log(ANDROID_LOG_WARN,
+                       "libc",
+@@ -127,14 +127,22 @@ static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_s
+ 
+   // Stack is at the lower end of mapped space, stack guard region is at the lower end of stack.
+   // Set the stack guard region to PROT_NONE, so we can detect thread stack overflow.
+-  if (mprotect(space, stack_guard_size, PROT_NONE) == -1) {
++  //
++  // Make the usable portion of the stack between the guard region and random gap readable and
++  // writable.
++  size_t stack_size = mmap_size - gap_size;
++  size_t usable_size = stack_size - stack_guard_size;
++  void *guard_boundary = reinterpret_cast<uint8_t*>(space) + stack_guard_size;
++  if (mprotect(guard_boundary, usable_size, PROT_READ | PROT_WRITE) == -1) {
+     __libc_format_log(ANDROID_LOG_WARN, "libc",
+-                      "pthread_create failed: couldn't mprotect PROT_NONE %zu-byte stack guard region: %s",
+-                      stack_guard_size, strerror(errno));
++                      "pthread_create failed: couldn't mprotect PROT_READ | PROT_WRITE %zu-byte stack region: %s",
++                      usable_size, strerror(errno));
+     munmap(space, mmap_size);
+     return NULL;
+   }
+   prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, space, stack_guard_size, "thread stack guard page");
++  void* random_gap = reinterpret_cast<uint8_t*>(space) + stack_size;
++  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, random_gap, gap_size, "thread stack random gap");
+ 
+   return space;
+ }
+@@ -145,14 +153,39 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
+ 
+   if (attr->stack_base == NULL) {
+     // The caller didn't provide a stack, so allocate one.
++
++    // Place a randomly sized gap above the stack, up to 10% as large as the stack
++    // on 32-bit and 50% on 64-bit where virtual memory is plentiful.
++#if __LP64__
++    size_t max_gap_size = attr->stack_size / 2;
++#else
++    size_t max_gap_size = attr->stack_size / 10;
++#endif
++
++    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE);
++
+     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
+-    mmap_size = BIONIC_ALIGN(attr->stack_size + sizeof(pthread_internal_t), PAGE_SIZE);
++    size_t stack_size = BIONIC_ALIGN(attr->stack_size + sizeof(pthread_internal_t) + PAGE_SIZE, PAGE_SIZE);
++    mmap_size = stack_size + gap_size;
++    if (mmap_size < stack_size) {
++      return EAGAIN; // overflow
++    }
++
+     attr->guard_size = BIONIC_ALIGN(attr->guard_size, PAGE_SIZE);
+-    attr->stack_base = __create_thread_mapped_space(mmap_size, attr->guard_size);
++    attr->stack_base = __create_thread_mapped_space(mmap_size, attr->guard_size, gap_size);
+     if (attr->stack_base == NULL) {
+       return EAGAIN;
+     }
+-    stack_top = reinterpret_cast<uint8_t*>(attr->stack_base) + mmap_size;
++    stack_top = reinterpret_cast<uint8_t*>(attr->stack_base) + stack_size;
++
++    // Choose a random base within the first page of the stack. Waste no more than
++    // 1% of the available stack space.
++    size_t max_random_base_size = attr->stack_size / 100;
++    if (max_random_base_size > PAGE_SIZE - 1) {
++      max_random_base_size = PAGE_SIZE - 1;
++    }
++    size_t random_base_size = arc4random_uniform(max_random_base_size);
++    stack_top -= random_base_size;
+   } else {
+     // Remember the mmap size is zero and we don't need to free it.
+     mmap_size = 0;
+diff --git a/libc/private/bionic_macros.h b/libc/private/bionic_macros.h
+index 4969bd9..93a9f2d 100644
+--- a/libc/private/bionic_macros.h
++++ b/libc/private/bionic_macros.h
+@@ -41,6 +41,9 @@
+ #define BIONIC_ALIGN(value, alignment) \
+   (((value) + (alignment) - 1) & ~((alignment) - 1))
+ 
++#define BIONIC_ALIGN_DOWN(value, alignment) \
++  ((value) & ~((alignment) - 1))
++
+ #define BIONIC_ROUND_UP_POWER_OF_2(value) \
+   ((sizeof(value) == 8) \
+     ? (1UL << (64 - __builtin_clzl(static_cast<unsigned long>(value)))) \
+-- 
+2.10.0
+

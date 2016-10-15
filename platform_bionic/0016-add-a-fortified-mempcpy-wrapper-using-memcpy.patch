@@ -1,0 +1,49 @@
+From 3d1652e885bd87efd555d3e1008c1f0b2e371a1f Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Sat, 12 Sep 2015 02:10:42 -0400
+Subject: [PATCH 16/58] add a fortified mempcpy wrapper using memcpy
+
+Rather than using __builtin___mempcpy_chk and then having to define a
+__mempcpy_chk symbol, this just provides an inline definition using the
+fortified memcpy. GCC lowers __builtin___mempcpy_chk to __memcpy_chk
+rather than __mempcpy_chk anyway (but Clang expects __mempcpy_chk).
+
+Change-Id: Ia20d11a6f8abad9bc082d98f465ab71b433d1052
+---
+ libc/bionic/mempcpy.cpp | 1 +
+ libc/include/string.h   | 7 +++++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/libc/bionic/mempcpy.cpp b/libc/bionic/mempcpy.cpp
+index b7b72f7..6e038e5 100644
+--- a/libc/bionic/mempcpy.cpp
++++ b/libc/bionic/mempcpy.cpp
+@@ -26,6 +26,7 @@
+  * SUCH DAMAGE.
+  */
+ 
++#undef _FORTIFY_SOURCE
+ #include <string.h>
+ 
+ void* mempcpy(void* dst, const void* src, size_t n) {
+diff --git a/libc/include/string.h b/libc/include/string.h
+index 089ec2a..efe1ae0 100644
+--- a/libc/include/string.h
++++ b/libc/include/string.h
+@@ -255,6 +255,13 @@ void* memcpy(void* __restrict dest, const void* __restrict src, size_t copy_amou
+     return __builtin___memcpy_chk(dest, src, copy_amount, __bos0(dest));
+ }
+ 
++#if defined(__USE_GNU)
++__BIONIC_FORTIFY_INLINE
++void* mempcpy(void* __restrict dest, const void* __restrict src, size_t n) {
++    return (char *)memcpy(dest, src, n) + n;
++}
++#endif
++
+ __BIONIC_FORTIFY_INLINE
+ void* memmove(void *dest, const void *src, size_t len) {
+     return __builtin___memmove_chk(dest, src, len, __bos0(dest));
+-- 
+2.10.0
+

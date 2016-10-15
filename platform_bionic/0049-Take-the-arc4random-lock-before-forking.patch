@@ -1,0 +1,46 @@
+From 9865f6ea45e495951ccd70eaf1b49e7446a1e6b0 Mon Sep 17 00:00:00 2001
+From: Josh Gao <jmgao@google.com>
+Date: Fri, 24 Jun 2016 13:04:09 -0700
+Subject: [PATCH 49/58] Take the arc4random lock before forking.
+
+Bug: http://b/24675038
+Test: stepped through a fork call in gdb
+Change-Id: I09d20ff1d103d0c005f2a0cdd9b0a8710ab2392c
+---
+ libc/bionic/libc_init_common.cpp | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/libc/bionic/libc_init_common.cpp b/libc/bionic/libc_init_common.cpp
+index 57e0480..5a6c2a7 100644
+--- a/libc/bionic/libc_init_common.cpp
++++ b/libc/bionic/libc_init_common.cpp
+@@ -41,13 +41,14 @@
+ #include <sys/time.h>
+ #include <unistd.h>
+ 
++#include "private/KernelArgumentBlock.h"
++#include "private/WriteProtected.h"
+ #include "private/bionic_auxv.h"
+ #include "private/bionic_globals.h"
+ #include "private/bionic_ssp.h"
+ #include "private/bionic_tls.h"
+-#include "private/KernelArgumentBlock.h"
+ #include "private/libc_logging.h"
+-#include "private/WriteProtected.h"
++#include "private/thread_private.h"
+ #include "pthread_internal.h"
+ 
+ extern "C" abort_msg_t** __abort_message_ptr;
+@@ -123,6 +124,9 @@ void __libc_init_common(KernelArgumentBlock& args) {
+   pthread_internal_t* main_thread = __get_thread();
+   __pthread_internal_add(main_thread);
+ 
++  // Register atfork handlers to take and release the arc4random lock.
++  pthread_atfork(_thread_arc4_lock, _thread_arc4_unlock, _thread_arc4_unlock);
++
+   __system_properties_init(); // Requires 'environ'.
+ }
+ 
+-- 
+2.10.0
+

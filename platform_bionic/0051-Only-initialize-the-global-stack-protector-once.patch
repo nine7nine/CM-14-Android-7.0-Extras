@@ -1,0 +1,185 @@
+From 3b0bbf1e447d688191ce97158e8f0fb0788cfabc Mon Sep 17 00:00:00 2001
+From: Josh Gao <jmgao@google.com>
+Date: Wed, 29 Jun 2016 16:47:53 -0700
+Subject: [PATCH 51/58] Only initialize the global stack protector once.
+
+Before, dynamic executables would initialize the global stack protector
+twice, once for the linker, and once for the executable. This worked
+because the result was the same for both initializations, because it
+used getauxval(AT_RANDOM), which won't be the case once arc4random gets
+used for it.
+
+Bug: http://b/29622562
+Change-Id: I7718b1ba8ee8fac7127ab2360cb1088e510fef5c
+Test: ran the stack protector tests on angler (32/64bit, static/dynamic)
+---
+ libc/bionic/__libc_init_main_thread.cpp | 15 +++++++++++++--
+ libc/bionic/libc_init_common.cpp        | 11 -----------
+ libc/bionic/libc_init_dynamic.cpp       |  5 +++++
+ libc/bionic/libc_init_static.cpp        |  2 ++
+ libc/bionic/pthread_create.cpp          |  4 ++++
+ libc/bionic/pthread_internal.h          |  1 +
+ libc/private/bionic_globals.h           |  1 -
+ 7 files changed, 25 insertions(+), 14 deletions(-)
+
+diff --git a/libc/bionic/__libc_init_main_thread.cpp b/libc/bionic/__libc_init_main_thread.cpp
+index 01bb9bb..2643eee 100644
+--- a/libc/bionic/__libc_init_main_thread.cpp
++++ b/libc/bionic/__libc_init_main_thread.cpp
+@@ -28,14 +28,24 @@
+ 
+ #include "libc_init_common.h"
+ 
++#include "private/KernelArgumentBlock.h"
+ #include "private/bionic_auxv.h"
+ #include "private/bionic_globals.h"
+-#include "private/KernelArgumentBlock.h"
++#include "private/bionic_ssp.h"
+ #include "pthread_internal.h"
+ 
+ extern "C" int __set_tls(void* ptr);
+ extern "C" int __set_tid_address(int* tid_address);
+ 
++// Declared in "private/bionic_ssp.h".
++uintptr_t __stack_chk_guard = 0;
++
++void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
++  // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
++  // Take the first 4/8 for the -fstack-protector implementation.
++  __stack_chk_guard = *reinterpret_cast<uintptr_t*>(args.getauxval(AT_RANDOM));
++}
++
+ // Setup for the main thread. For dynamic executables, this is called by the
+ // linker _before_ libc is mapped in memory. This means that all writes to
+ // globals from this function will apply to linker-private copies and will not
+@@ -78,7 +88,8 @@ void __libc_init_main_thread(KernelArgumentBlock& args) {
+   // TODO: the main thread's sched_policy and sched_priority need to be queried.
+ 
+   // The TLS stack guard is set from the global, so ensure that we've initialized the global
+-  // before we initialize the TLS.
++  // before we initialize the TLS. Dynamic executables will initialize their copy of the global
++  // stack protector from the one in the main thread's TLS.
+   __libc_init_global_stack_chk_guard(args);
+ 
+   __init_thread(&main_thread);
+diff --git a/libc/bionic/libc_init_common.cpp b/libc/bionic/libc_init_common.cpp
+index 4a365fc..169db2f 100644
+--- a/libc/bionic/libc_init_common.cpp
++++ b/libc/bionic/libc_init_common.cpp
+@@ -45,7 +45,6 @@
+ #include "private/WriteProtected.h"
+ #include "private/bionic_auxv.h"
+ #include "private/bionic_globals.h"
+-#include "private/bionic_ssp.h"
+ #include "private/bionic_tls.h"
+ #include "private/libc_logging.h"
+ #include "private/thread_private.h"
+@@ -62,15 +61,6 @@ const char* __progname;
+ // Declared in <unistd.h>.
+ char** environ;
+ 
+-// Declared in "private/bionic_ssp.h".
+-uintptr_t __stack_chk_guard = 0;
+-
+-void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
+-  // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
+-  // Take the first 4/8 for the -fstack-protector implementation.
+-  __stack_chk_guard = *reinterpret_cast<uintptr_t*>(args.getauxval(AT_RANDOM));
+-}
+-
+ #if defined(__i386__)
+ __LIBC_HIDDEN__ void* __libc_sysinfo = nullptr;
+ 
+@@ -91,7 +81,6 @@ void __libc_init_globals(KernelArgumentBlock& args) {
+   // Initialize libc globals that are needed in both the linker and in libc.
+   // In dynamic binaries, this is run at least twice for different copies of the
+   // globals, once for the linker's copy and once for the one in libc.so.
+-  __libc_init_global_stack_chk_guard(args);
+   __libc_auxv = args.auxv;
+   __libc_globals.initialize();
+   __libc_globals.mutate([&args](libc_globals* globals) {
+diff --git a/libc/bionic/libc_init_dynamic.cpp b/libc/bionic/libc_init_dynamic.cpp
+index ab48fb8..43bca30 100644
+--- a/libc/bionic/libc_init_dynamic.cpp
++++ b/libc/bionic/libc_init_dynamic.cpp
+@@ -52,6 +52,7 @@
+ #include "libc_init_common.h"
+ 
+ #include "private/bionic_globals.h"
++#include "private/bionic_ssp.h"
+ #include "private/bionic_tls.h"
+ #include "private/KernelArgumentBlock.h"
+ 
+@@ -74,6 +75,10 @@ __attribute__((constructor)) static void __libc_preinit() {
+   // __libc_init_common() will change the TLS area so the old one won't be accessible anyway.
+   *args_slot = NULL;
+ 
++  // The linker has initialized its copy of the global stack_chk_guard, and filled in the main
++  // thread's TLS slot with that value. Initialize the local global stack guard with its value.
++  __stack_chk_guard = reinterpret_cast<uintptr_t>(tls[TLS_SLOT_STACK_GUARD]);
++
+   __libc_init_globals(*args);
+   __libc_init_common(*args);
+ 
+diff --git a/libc/bionic/libc_init_static.cpp b/libc/bionic/libc_init_static.cpp
+index d1494d7..5e06d39 100644
+--- a/libc/bionic/libc_init_static.cpp
++++ b/libc/bionic/libc_init_static.cpp
+@@ -39,6 +39,7 @@
+ #include "libc_init_common.h"
+ #include "pthread_internal.h"
+ 
++#include "private/bionic_globals.h"
+ #include "private/bionic_page.h"
+ #include "private/bionic_tls.h"
+ #include "private/KernelArgumentBlock.h"
+@@ -85,6 +86,7 @@ __noreturn void __libc_init(void* raw_args,
+   __libc_init_main_thread(args);
+ 
+   // Initializing the globals requires TLS to be available for errno.
++  __init_thread_stack_guard(__get_thread());
+   __libc_init_globals(args);
+ 
+   __libc_init_AT_SECURE(args);
+diff --git a/libc/bionic/pthread_create.cpp b/libc/bionic/pthread_create.cpp
+index f68c918..9b114ab 100644
+--- a/libc/bionic/pthread_create.cpp
++++ b/libc/bionic/pthread_create.cpp
+@@ -57,6 +57,10 @@ void __init_tls(pthread_internal_t* thread) {
+   // Slot 0 must point to itself. The x86 Linux kernel reads the TLS from %fs:0.
+   thread->tls[TLS_SLOT_SELF] = thread->tls;
+   thread->tls[TLS_SLOT_THREAD_ID] = thread;
++  __init_thread_stack_guard(thread);
++}
++
++void __init_thread_stack_guard(pthread_internal_t* thread) {
+   // GCC looks in the TLS for the stack guard on x86, so copy it there from our global.
+   thread->tls[TLS_SLOT_STACK_GUARD] = reinterpret_cast<void*>(__stack_chk_guard);
+ }
+diff --git a/libc/bionic/pthread_internal.h b/libc/bionic/pthread_internal.h
+index 925a725..7953da9 100644
+--- a/libc/bionic/pthread_internal.h
++++ b/libc/bionic/pthread_internal.h
+@@ -114,6 +114,7 @@ class pthread_internal_t {
+ 
+ __LIBC_HIDDEN__ int __init_thread(pthread_internal_t* thread);
+ __LIBC_HIDDEN__ void __init_tls(pthread_internal_t* thread);
++__LIBC_HIDDEN__ void __init_thread_stack_guard(pthread_internal_t* thread);
+ __LIBC_HIDDEN__ void __init_alternate_signal_stack(pthread_internal_t*);
+ 
+ __LIBC_HIDDEN__ pthread_t           __pthread_internal_add(pthread_internal_t* thread);
+diff --git a/libc/private/bionic_globals.h b/libc/private/bionic_globals.h
+index b45c0c3..94dd7e8 100644
+--- a/libc/private/bionic_globals.h
++++ b/libc/private/bionic_globals.h
+@@ -44,7 +44,6 @@ struct libc_globals {
+ __LIBC_HIDDEN__ extern WriteProtected<libc_globals> __libc_globals;
+ 
+ class KernelArgumentBlock;
+-__LIBC_HIDDEN__ void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args);
+ __LIBC_HIDDEN__ void __libc_init_malloc(libc_globals* globals);
+ __LIBC_HIDDEN__ void __libc_init_setjmp_cookie(libc_globals* globals, KernelArgumentBlock& args);
+ __LIBC_HIDDEN__ void __libc_init_vdso(libc_globals* globals, KernelArgumentBlock& args);
+-- 
+2.10.0
+

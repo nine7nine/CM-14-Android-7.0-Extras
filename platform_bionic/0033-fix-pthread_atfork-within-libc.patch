@@ -1,0 +1,48 @@
+From 8cebe294c1d7496c3313460c4ef3b26921e3e871 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 4 Dec 2015 02:03:01 -0500
+Subject: [PATCH 33/58] fix pthread_atfork within libc
+
+---
+ libc/private/thread_private.h                      | 5 ++++-
+ libc/upstream-openbsd/android/include/arc4random.h | 8 --------
+ 2 files changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/libc/private/thread_private.h b/libc/private/thread_private.h
+index 2e3ac3d..7f896bc 100644
+--- a/libc/private/thread_private.h
++++ b/libc/private/thread_private.h
+@@ -48,7 +48,10 @@ __LIBC_HIDDEN__ void    _thread_arc4_unlock(void);
+ 
+ #define _ARC4_LOCK() _thread_arc4_lock()
+ #define _ARC4_UNLOCK() _thread_arc4_unlock()
+-#define _ARC4_ATFORK(f) pthread_atfork(NULL, NULL, (f))
++
++extern void *__dso_handle;
++extern int __register_atfork(void (*)(void), void(*)(void), void (*)(void), void *);
++#define _ARC4_ATFORK(f) __register_atfork(NULL, NULL, (f), __dso_handle)
+ 
+ __END_DECLS
+ 
+diff --git a/libc/upstream-openbsd/android/include/arc4random.h b/libc/upstream-openbsd/android/include/arc4random.h
+index 96d9c9a..0471a8c 100644
+--- a/libc/upstream-openbsd/android/include/arc4random.h
++++ b/libc/upstream-openbsd/android/include/arc4random.h
+@@ -35,14 +35,6 @@
+ //#define _ARC4_LOCK()   pthread_mutex_lock(&arc4random_mtx)
+ //#define _ARC4_UNLOCK() pthread_mutex_unlock(&arc4random_mtx)
+ 
+-#ifdef __GLIBC__
+-extern void *__dso_handle;
+-extern int __register_atfork(void (*)(void), void(*)(void), void (*)(void), void *);
+-#define _ARC4_ATFORK(f) __register_atfork(NULL, NULL, (f), __dso_handle)
+-#else
+-#define _ARC4_ATFORK(f) pthread_atfork(NULL, NULL, (f))
+-#endif
+-
+ static inline void
+ _getentropy_fail(void)
+ {
+-- 
+2.10.0
+
