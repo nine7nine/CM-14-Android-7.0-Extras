@@ -1,3 +1,24 @@
+this is a hack I came up with to do a partial merge of AppOppsXposed 
+plugin into PrivacyGaurd/AppOpps in CM. Reason:
+
+Xposed framework cannot work on roms that are using the exec/fork 
+spawning model; found in CopperheadOS (my CM rom uses this). Xposed 
+relies on Zygote being the parent process of every other process, 
+in order to be able to hook into them and modify their behavior.
+however, this simply breaks when using the traditional 
+unix exec/fork spwaning model.
+
+Therefore, this patch replicates most of the same functionality as
+I would get from having AppOppXposed, without needing Xposed. 
+Beyond my own use, this could be useful to people not wanting to 
+use Xposed but like this particular plugin/feature. 
+
+With this patch enabled, you can launch the AppOpps activity and you 
+will be able to see what all of the system apps permissions are AND
+it will also expose permissions that Cyanogenmod normally hides.
+
+johnstonljordan@gmail.com <author>
+
 diff -Nur a/src/com/android/settings/applications/AppOpsDetails.java b/src/com/android/settings/applications/AppOpsDetails.java
 --- a/src/com/android/settings/applications/AppOpsDetails.java	2016-04-08 13:40:41.290749000 -0400
 +++ b/src/com/android/settings/applications/AppOpsDetails.java	2016-05-20 12:48:21.727306955 -0400
