@@ -25,12 +25,10 @@ This folder contains patches for klte. These include;
 * randomized mac address support (from CopperheadOS)
 
 Currently, I am working on upstreaming the seccomp_filter support. However, in the meantime, if you want the seccomp_filter 
-support; you must copy all of the patches from with the ./seccomp-patches folder into the klte kernel sources, then run; 
+support; you must copy all of the patches from within the ./seccomp-patches folder into the root directory of the klte kernel sources, then run; "git am *.patch" 
 
-"git am *.patch" 
+To apply all of the patches found within the /patches folder; you must copy the entire /patches folder and patchkernel.sh script into the root directory of the klte kernel sources, then run "./patchkernel.sh".
 
-To apply all of the patches found within the /patches folder; you must copy the /patches folder and patchkernel.sh script into the kernel sources, then run ./patchkernel.sh.
-
-NOTE: They should be applied in this order.
+NOTE: They should probably be applied in this order.
 
 ...For applying any of the other patchsets, I would review them - as I won't be giving any support on using them. So you should be familiar with patching AOSP, using "git am", "patch", "diff" and resolving merging conflicts, as the Cyamogenmod and AOSP source trees are moving targets and can break patches at any time.
