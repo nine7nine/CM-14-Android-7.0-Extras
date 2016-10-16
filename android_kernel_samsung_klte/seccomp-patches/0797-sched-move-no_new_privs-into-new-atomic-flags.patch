@@ -1,0 +1,154 @@
+From db8ca0a128cb7a0eb1f21d529ec7d5fdd393a89d Mon Sep 17 00:00:00 2001
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 21 May 2014 15:23:46 -0700
+Subject: [PATCH 797/988] sched: move no_new_privs into new atomic flags
+
+Since seccomp transitions between threads requires updates to the
+no_new_privs flag to be atomic, the flag must be part of an atomic flag
+set. This moves the nnp flag into a separate task field, and introduces
+accessors.
+
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Oleg Nesterov <oleg@redhat.com>
+Reviewed-by: Andy Lutomirski <luto@amacapital.net>
+
+Conflicts
+	include/linux/sched.h
+	kernel/sys.c
+
+EDIT: Sumsung/klte tree already had a few changes from the original 
+patch, so they are ommited/removed from here.
+
+---
+ include/linux/sched.h      | 18 +++++++++++++++---
+ kernel/seccomp.c           |  2 +-
+ kernel/sys.c               |  4 ++--
+ security/apparmor/domain.c |  4 ++--
+ 5 files changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 71df39a..a809557 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1344,9 +1344,6 @@ struct task_struct {
+ 				 * execve */
+ 	unsigned in_iowait:1;
+ 
+-	/* task may not gain privileges */
+-	unsigned no_new_privs:1;
+-
+ 	/* Revert to default priority/policy when forking */
+ 	unsigned sched_reset_on_fork:1;
+ 	unsigned sched_contributes_to_load:1;
+@@ -1356,6 +1353,8 @@ struct task_struct {
+ 	unsigned irq_thread:1;
+ #endif
+ 
++	unsigned long atomic_flags; /* Flags needing atomic access. */
++
+ 	pid_t pid;
+ 	pid_t tgid;
+ 
+@@ -1865,6 +1864,19 @@ extern int task_free_unregister(struct notifier_block *n);
+ #define tsk_used_math(p) ((p)->flags & PF_USED_MATH)
+ #define used_math() tsk_used_math(current)
+ 
++/* Per-process atomic flags. */
++#define PFA_NO_NEW_PRIVS 0x00000001	/* May not gain new privileges. */
++
++static inline bool task_no_new_privs(struct task_struct *p)
++{
++	return test_bit(PFA_NO_NEW_PRIVS, &p->atomic_flags);
++}
++
++static inline void task_set_no_new_privs(struct task_struct *p)
++{
++	set_bit(PFA_NO_NEW_PRIVS, &p->atomic_flags);
++}
++
+ /*
+  * task->jobctl flags
+  */
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 184a742..960db49 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -262,7 +262,7 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+ 	 * This avoids scenarios where unprivileged tasks can affect the
+ 	 * behavior of privileged children.
+ 	 */
+-	if (!current->no_new_privs &&
++	if (!task_no_new_privs(current) &&
+ 	    security_capable_noaudit(current_cred(), current_user_ns(),
+ 				     CAP_SYS_ADMIN) != 0)
+ 		return -EACCES;
+diff --git a/security/apparmor/domain.c b/security/apparmor/domain.c
+index b81ea10..e9d7fa5 100644
+--- a/security/apparmor/domain.c
++++ b/security/apparmor/domain.c
+@@ -394,6 +394,11 @@
+ 			new_profile = find_attach(ns, &ns->base.profiles, name);
+ 		if (!new_profile)
+ 			goto cleanup;
++		/*
++		 * NOTE: Domain transitions from unconfined are allowed
++		 * even when no_new_privs is set because this aways results
++		 * in a further reduction of permissions.
++		 */
+ 		goto apply;
+ 	}
+ 
+@@ -455,6 +460,16 @@
+ 		/* fail exec */
+ 		error = -EACCES;
+ 
++	/*
++	 * Policy has specified a domain transition, if no_new_privs then
++	 * fail the exec.
++	 */
++	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS) {
++		aa_put_profile(new_profile);
++		error = -EPERM;
++		goto cleanup;
++	}
++
+ 	if (!new_profile)
+ 		goto audit;
+ 
+@@ -609,6 +624,14 @@
+ 	const char *target = NULL, *info = NULL;
+ 	int error = 0;
+ 
++	/*
++	 * Fail explicitly requested domain transitions if no_new_privs.
++	 * There is no exception for unconfined as change_hat is not
++	 * available.
++	 */
++	if (task_no_new_privs(current))
++		return -EPERM;
++
+ 	/* released below */
+ 	cred = get_current_cred();
+ 	cxt = cred->security;
+@@ -750,6 +773,18 @@
+ 	cxt = cred->security;
+ 	profile = aa_cred_profile(cred);
+ 
++	/*
++	 * Fail explicitly requested domain transitions if no_new_privs
++	 * and not unconfined.
++	 * Domain transitions from unconfined are allowed even when
++	 * no_new_privs is set because this aways results in a reduction
++	 * of permissions.
++	 */
++	if (task_no_new_privs(current) && !unconfined(profile)) {
++		put_cred(cred);
++		return -EPERM;
++	}
++
+ 	if (ns_name) {
+ 		/* released below */
+ 		ns = aa_find_namespace(profile->ns, ns_name);
+-- 
+2.10.0
+

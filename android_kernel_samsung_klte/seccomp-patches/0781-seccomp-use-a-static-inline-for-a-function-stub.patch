@@ -1,0 +1,32 @@
+From ef7720cb72edc1d8c9a9d41288edb35a2c622e1c Mon Sep 17 00:00:00 2001
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 17 Apr 2012 12:08:48 +1000
+Subject: [PATCH 781/988] seccomp: use a static inline for a function stub
+
+Fixes this error message when CONFIG_SECCOMP is not set:
+
+arch/powerpc/kernel/ptrace.c: In function 'do_syscall_trace_enter':
+arch/powerpc/kernel/ptrace.c:1713:2: error: statement with no effect [-Werror=unused-value]
+
+Signed-off-by: Stephen Rothwell <sfr@ozlabs.au.ibm.com>
+Signed-off-by: James Morris <james.l.morris@oracle.com>
+---
+ include/linux/seccomp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index 5818e86..60f2b35 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -90,7 +90,7 @@ static inline int seccomp_mode(struct seccomp *s)
+ struct seccomp { };
+ struct seccomp_filter { };
+ 
+-#define secure_computing(x) 0
++static inline int secure_computing(int this_syscall) { return 0; }
+ 
+ static inline long prctl_get_seccomp(void)
+ {
+-- 
+2.10.0
+

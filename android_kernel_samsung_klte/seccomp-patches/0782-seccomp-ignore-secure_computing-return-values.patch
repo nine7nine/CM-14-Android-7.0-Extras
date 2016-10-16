@@ -1,0 +1,154 @@
+From dc46412e0f3c01b2c9ff65ce249ead865f648730 Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Tue, 17 Apr 2012 14:48:57 -0500
+Subject: [PATCH 782/988] seccomp: ignore secure_computing return values
+
+This change is inspired by
+  https://lkml.org/lkml/2012/4/16/14
+which fixes the build warnings for arches that don't support
+CONFIG_HAVE_ARCH_SECCOMP_FILTER.
+
+In particular, there is no requirement for the return value of
+secure_computing() to be checked unless the architecture supports
+seccomp filter.  Instead of silencing the warnings with (void)
+a new static inline is added to encode the expected behavior
+in a compiler and human friendly way.
+
+v2: - cleans things up with a static inline
+    - removes sfr's signed-off-by since it is a different approach
+v1: - matches sfr's original change
+
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Will Drewry <wad@chromium.org>
+Acked-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: James Morris <james.l.morris@oracle.com>
+---
+ arch/microblaze/kernel/ptrace.c | 2 +-
+ arch/mips/kernel/ptrace.c       | 2 +-
+ arch/powerpc/kernel/ptrace.c    | 2 +-
+ arch/s390/kernel/ptrace.c       | 2 +-
+ arch/sh/kernel/ptrace_32.c      | 2 +-
+ arch/sh/kernel/ptrace_64.c      | 2 +-
+ arch/sparc/kernel/ptrace_64.c   | 2 +-
+ include/linux/seccomp.h         | 7 +++++++
+ 8 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/arch/microblaze/kernel/ptrace.c b/arch/microblaze/kernel/ptrace.c
+index 6eb2aa9..ab1b9db 100644
+--- a/arch/microblaze/kernel/ptrace.c
++++ b/arch/microblaze/kernel/ptrace.c
+@@ -136,7 +136,7 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
+ {
+ 	long ret = 0;
+ 
+-	secure_computing(regs->r12);
++	secure_computing_strict(regs->r12);
+ 
+ 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+ 	    tracehook_report_syscall_entry(regs))
+diff --git a/arch/mips/kernel/ptrace.c b/arch/mips/kernel/ptrace.c
+index 7c24c29..4812c6d 100644
+--- a/arch/mips/kernel/ptrace.c
++++ b/arch/mips/kernel/ptrace.c
+@@ -535,7 +535,7 @@ static inline int audit_arch(void)
+ asmlinkage void syscall_trace_enter(struct pt_regs *regs)
+ {
+ 	/* do the secure computing check first */
+-	secure_computing(regs->regs[2]);
++	secure_computing_strict(regs->regs[2]);
+ 
+ 	if (!(current->ptrace & PT_PTRACED))
+ 		goto out;
+diff --git a/arch/powerpc/kernel/ptrace.c b/arch/powerpc/kernel/ptrace.c
+index 8d8e028..dd5e214 100644
+--- a/arch/powerpc/kernel/ptrace.c
++++ b/arch/powerpc/kernel/ptrace.c
+@@ -1710,7 +1710,7 @@ long do_syscall_trace_enter(struct pt_regs *regs)
+ {
+ 	long ret = 0;
+ 
+-	secure_computing(regs->gpr[0]);
++	secure_computing_strict(regs->gpr[0]);
+ 
+ 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+ 	    tracehook_report_syscall_entry(regs))
+diff --git a/arch/s390/kernel/ptrace.c b/arch/s390/kernel/ptrace.c
+index 02f300f..4993e68 100644
+--- a/arch/s390/kernel/ptrace.c
++++ b/arch/s390/kernel/ptrace.c
+@@ -719,7 +719,7 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
+ 	long ret = 0;
+ 
+ 	/* Do the secure computing check first. */
+-	secure_computing(regs->gprs[2]);
++	secure_computing_strict(regs->gprs[2]);
+ 
+ 	/*
+ 	 * The sysc_tracesys code in entry.S stored the system
+diff --git a/arch/sh/kernel/ptrace_32.c b/arch/sh/kernel/ptrace_32.c
+index 9698671..81f999a 100644
+--- a/arch/sh/kernel/ptrace_32.c
++++ b/arch/sh/kernel/ptrace_32.c
+@@ -503,7 +503,7 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
+ {
+ 	long ret = 0;
+ 
+-	secure_computing(regs->regs[0]);
++	secure_computing_strict(regs->regs[0]);
+ 
+ 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+ 	    tracehook_report_syscall_entry(regs))
+diff --git a/arch/sh/kernel/ptrace_64.c b/arch/sh/kernel/ptrace_64.c
+index bc81e07..af90339 100644
+--- a/arch/sh/kernel/ptrace_64.c
++++ b/arch/sh/kernel/ptrace_64.c
+@@ -522,7 +522,7 @@ asmlinkage long long do_syscall_trace_enter(struct pt_regs *regs)
+ {
+ 	long long ret = 0;
+ 
+-	secure_computing(regs->regs[9]);
++	secure_computing_strict(regs->regs[9]);
+ 
+ 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+ 	    tracehook_report_syscall_entry(regs))
+diff --git a/arch/sparc/kernel/ptrace_64.c b/arch/sparc/kernel/ptrace_64.c
+index 6f97c07..484daba 100644
+--- a/arch/sparc/kernel/ptrace_64.c
++++ b/arch/sparc/kernel/ptrace_64.c
+@@ -1062,7 +1062,7 @@ asmlinkage int syscall_trace_enter(struct pt_regs *regs)
+ 	int ret = 0;
+ 
+ 	/* do the secure computing check first */
+-	secure_computing(regs->u_regs[UREG_G1]);
++	secure_computing_strict(regs->u_regs[UREG_G1]);
+ 
+ 	if (test_thread_flag(TIF_SYSCALL_TRACE))
+ 		ret = tracehook_report_syscall_entry(regs);
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index 60f2b35..84f6320d 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -75,6 +75,12 @@ static inline int secure_computing(int this_syscall)
+ 	return 0;
+ }
+ 
++/* A wrapper for architectures supporting only SECCOMP_MODE_STRICT. */
++static inline void secure_computing_strict(int this_syscall)
++{
++	BUG_ON(secure_computing(this_syscall) != 0);
++}
++
+ extern long prctl_get_seccomp(void);
+ extern long prctl_set_seccomp(unsigned long, char __user *);
+ 
+@@ -91,6 +97,7 @@ struct seccomp { };
+ struct seccomp_filter { };
+ 
+ static inline int secure_computing(int this_syscall) { return 0; }
++static inline void secure_computing_strict(int this_syscall) { return; }
+ 
+ static inline long prctl_get_seccomp(void)
+ {
+-- 
+2.10.0
+

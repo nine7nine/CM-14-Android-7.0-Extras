@@ -1,0 +1,52 @@
+From d4f8f7efa41a858dbb22bcc59cb491a53da3c42a Mon Sep 17 00:00:00 2001
+From: Sasha Levitskiy <sanek@google.com>
+Date: Tue, 13 Nov 2012 10:14:51 -0800
+Subject: [PATCH 779/988] Change-Id: I7c9d49079d4e18390c2d520513a4afd55e6eaa3e
+
+---
+ arch/x86/Kconfig         | 3 ++-
+ arch/x86/kernel/ptrace.c | 7 ++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index b1478f4..357953f 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -81,7 +81,8 @@ config X86
+ 	select CLKEVT_I8253
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
+-	select DCACHE_WORD_ACCESS
++	select DCACHE_WORD_ACCESS if !DEBUG_PAGEALLOC
++	select HAVE_ARCH_SECCOMP_FILTER
+ 
+ config INSTRUCTION_DECODER
+ 	def_bool (KPROBES || PERF_EVENTS)
+diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
+index c4410fb..9ee1787 100644
+--- a/arch/x86/kernel/ptrace.c
++++ b/arch/x86/kernel/ptrace.c
+@@ -1504,7 +1504,11 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 		regs->flags |= X86_EFLAGS_TF;
+ 
+ 	/* do the secure computing check first */
+-	secure_computing(regs->orig_ax);
++	if (secure_computing(regs->orig_ax)) {
++		/* seccomp failures shouldn't expose any additional code. */
++		ret = -1L;
++		goto out;
++	}
+ 
+ 	if (unlikely(test_thread_flag(TIF_SYSCALL_EMU)))
+ 		ret = -1L;
+@@ -1529,6 +1533,7 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 				    regs->dx, regs->r10);
+ #endif
+ 
++out:
+ 	return ret ?: regs->orig_ax;
+ }
+ 
+-- 
+2.10.0
+

@@ -1,0 +1,38 @@
+From a94cffc650faadb79683835b2e00e7c183693926 Mon Sep 17 00:00:00 2001
+From: Robert Sesek <rsesek@google.com>
+Date: Mon, 18 Aug 2014 19:14:51 -0400
+Subject: [PATCH 803/988] seccomp: Use atomic operations that are present in
+ kernel 3.4.
+
+Signed-off-by: Robert Sesek <rsesek@google.com>
+---
+ kernel/seccomp.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index e35c742..829a2ca 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -245,7 +245,7 @@ static inline void seccomp_assign_mode(struct task_struct *task,
+ 	 * Make sure TIF_SECCOMP cannot be set before the mode (and
+ 	 * filter) is set.
+ 	 */
+-	smp_mb__before_atomic();
++	smp_mb();
+ 	set_tsk_thread_flag(task, TIF_SECCOMP);
+ }
+ 
+@@ -335,8 +335,8 @@ static inline void seccomp_sync_threads(void)
+ 		 * allows a put before the assignment.)
+ 		 */
+ 		put_seccomp_filter(thread);
+-		smp_store_release(&thread->seccomp.filter,
+-				  caller->seccomp.filter);
++		smp_mb();
++		ACCESS_ONCE(thread->seccomp.filter) = caller->seccomp.filter;
+ 		/*
+ 		 * Opt the other thread into seccomp if needed.
+ 		 * As threads are considered to be trust-realm
+-- 
+2.10.0
+

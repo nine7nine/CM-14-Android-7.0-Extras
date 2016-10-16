@@ -1,0 +1,90 @@
+From c6fd8e5948b6d36bc0e3eb4306aa63c4a731cd60 Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Sun, 10 Aug 2014 20:50:30 -0700
+Subject: [PATCH 861/988] seccomp: Replace BUG(!spin_is_locked()) with
+ assert_spin_lock
+
+Current upstream kernel hangs with mips and powerpc targets in
+uniprocessor mode if SECCOMP is configured.
+
+Bisect points to commit dbd952127d11 ("seccomp: introduce writer locking").
+Turns out that code such as
+	BUG_ON(!spin_is_locked(&list_lock));
+can not be used in uniprocessor mode because spin_is_locked() always
+returns false in this configuration, and that assert_spin_locked()
+exists for that very purpose and must be used instead.
+
+Fixes: dbd952127d11 ("seccomp: introduce writer locking")
+Cc: Kees Cook <keescook@chromium.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ kernel/fork.c    |  2 +-
+ kernel/seccomp.c | 10 +++++-----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 6953ed8..faa6721 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1112,7 +1112,7 @@ static void copy_seccomp(struct task_struct *p)
+ 	 * needed because this new task is not yet running and cannot
+ 	 * be racing exec.
+ 	 */
+-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
++	assert_spin_locked(&current->sighand->siglock);
+ 
+ 	/* Ref-count the new filter user, and assign it. */
+ 	get_seccomp_filter(current);
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 829a2ca..a143978 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -227,7 +227,7 @@ static u32 seccomp_run_filters(int syscall)
+ 
+ static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
+ {
+-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
++	assert_spin_locked(&current->sighand->siglock);
+ 
+ 	if (current->seccomp.mode && current->seccomp.mode != seccomp_mode)
+ 		return false;
+@@ -238,7 +238,7 @@ static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
+ static inline void seccomp_assign_mode(struct task_struct *task,
+ 				       unsigned long seccomp_mode)
+ {
+-	BUG_ON(!spin_is_locked(&task->sighand->siglock));
++	assert_spin_locked(&task->sighand->siglock);
+ 
+ 	task->seccomp.mode = seccomp_mode;
+ 	/*
+@@ -277,7 +277,7 @@ static inline pid_t seccomp_can_sync_threads(void)
+ 	struct task_struct *thread, *caller;
+ 
+ 	BUG_ON(!mutex_is_locked(&current->signal->cred_guard_mutex));
+-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
++	assert_spin_locked(&current->sighand->siglock);
+ 
+ 	/* Validate all threads being eligible for synchronization. */
+ 	caller = current;
+@@ -318,7 +318,7 @@ static inline void seccomp_sync_threads(void)
+ 	struct task_struct *thread, *caller;
+ 
+ 	BUG_ON(!mutex_is_locked(&current->signal->cred_guard_mutex));
+-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
++	assert_spin_locked(&current->sighand->siglock);
+ 
+ 	/* Synchronize all threads. */
+ 	caller = current;
+@@ -463,7 +463,7 @@ static long seccomp_attach_filter(unsigned int flags,
+ 	unsigned long total_insns;
+ 	struct seccomp_filter *walker;
+ 
+-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
++	assert_spin_locked(&current->sighand->siglock);
+ 
+ 	/* Validate resulting filter length. */
+ 	total_insns = filter->len;
+-- 
+2.10.0
+

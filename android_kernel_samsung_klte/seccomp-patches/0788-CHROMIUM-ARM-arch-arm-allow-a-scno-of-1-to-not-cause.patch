@@ -1,0 +1,44 @@
+From b99d845bbd969d4de8e3c707f76f0260d3f2be2c Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Thu, 26 Apr 2012 15:43:25 -0500
+Subject: [PATCH 788/988] CHROMIUM: ARM: arch/arm: allow a scno of -1 to not
+ cause a SIGILL
+
+On tracehook-friendly platforms, a system call number of -1 falls
+through without running much code or taking much action.
+
+ARM is different.  This adds a lightweight check to arm_syscall()
+to make sure that ARM behaves the same way.
+
+Signed-off-by: Will Drewry <wad@chromium.org>
+TEST=building on tegra2 now. Will live test with seccomp testsuite. It was through SIGILL.
+BUG=chromium-os:27878
+
+Change-Id: Ie3896b54e9bfa21c22e0df456a47ad03c8d0aa3f
+Reviewed-on: https://gerrit.chromium.org/gerrit/21251
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Will Drewry <wad@chromium.org>
+Tested-by: Will Drewry <wad@chromium.org>
+Signed-off-by: Sasha Levitskiy <sanek@google.com>
+---
+ arch/arm/kernel/traps.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/kernel/traps.c b/arch/arm/kernel/traps.c
+index a53a5a3..fa570a8 100644
+--- a/arch/arm/kernel/traps.c
++++ b/arch/arm/kernel/traps.c
+@@ -508,6 +508,10 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
+ 	struct thread_info *thread = current_thread_info();
+ 	siginfo_t info;
+ 
++	/* Emulate/fallthrough. */
++	if (no == -1)
++		return regs->ARM_r0;
++
+ 	if ((no >> 16) != (__ARM_NR_BASE>> 16))
+ 		return bad_syscall(no, regs);
+ 
+-- 
+2.10.0
+

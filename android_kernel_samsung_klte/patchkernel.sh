@@ -9,12 +9,13 @@ echo "
 Applying MISC KLTE/Galaxy S5 Kernel Patches
 
 "
+
 echo "0"
 patch -Np1 < ./patches/qdsp6v2_mm_fixup.patch 
 echo "1"
 patch -Np1 < ./patches/4-random-mac.patch
-echo "2"
-patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
+#echo "2"
+#patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
 echo "3"
 patch -Np1 < ./patches/11-softirq_reduce_latencies.patch
 echo "4"
@@ -22,8 +23,6 @@ patch -Np1 < ./patches/13-futex_cleanup_larger_table.patch
 echo "5"
 patch -Np1 < ./patches/14-optimizedARM-rwsem.patch 
 echo "6"
-#patch -Np1 < ./patches/15-fix_samsung_types-mismatch.patch
-#echo "7"
 patch -Np1 < ./patches/17-nvidia_power_efficiently_tweak.patch
 echo "8"
 patch -Np1 < ./patches/18-rwsem_mutex_scaling.patch 
@@ -62,15 +61,11 @@ patch -Np1 < ./patches/766-bcmhd_reduce-wakelocks.patch
 #echo "25"
 #patch -Np1 < ./patches/compiler-gcc5.patch
 echo "26"
-patch -Np1 < ./patches/ZZZ-perf_event_paranoid3_grsec.patch
-#echo "27"
 #patch -Np1 < ./patches/3.4-gcc5.patch
 #echo "28"
 #patch -Np1 < ./patches/more-3.4_gcc5x_fixups.patch
-echo "29"
+#echo "29"
 patch -Np1 < ./patches/lx314-backport_fstackprotector_strong.patch
-echo "30"
-patch -Np1 < ./patches/FFF-klte_seccomp-bpf.patch
 echo "31"
 patch -Np1 < ./patches/lx34LTS_google_fixups.patch
 #echo "32"

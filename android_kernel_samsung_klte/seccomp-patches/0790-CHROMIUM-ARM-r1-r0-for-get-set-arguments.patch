@@ -1,0 +1,48 @@
+From 4e93e06d100541d56a7cce42fcf01d0784b7a00f Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Fri, 27 Apr 2012 12:19:46 -0500
+Subject: [PATCH 790/988] CHROMIUM: ARM: r1->r0 for get/set arguments
+
+ARM reuses r0 as the first argument. This fixes the mistaken
+assumption in the original patchset.  These will be merged
+into one change when sent upstream.
+
+Signed-off-by: Will Drewry <wad@chromium.org>
+TEST=emerge tegra2_kaen; run seccomp testsuite
+BUG=chromium-os:27878
+
+Change-Id: Iaaa09995d35f78ee8cef7b600d526e71f3b2fcec
+Reviewed-on: https://gerrit.chromium.org/gerrit/21342
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Will Drewry <wad@chromium.org>
+Tested-by: Will Drewry <wad@chromium.org>
+Signed-off-by: Sasha Levitskiy <sanek@google.com>
+---
+ arch/arm/include/asm/syscall.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/include/asm/syscall.h b/arch/arm/include/asm/syscall.h
+index 2834036..4c123db 100644
+--- a/arch/arm/include/asm/syscall.h
++++ b/arch/arm/include/asm/syscall.h
+@@ -55,7 +55,7 @@ static inline void syscall_get_arguments(struct task_struct *task,
+ 					 unsigned long *args)
+ {
+ 	BUG_ON(i + n > 6);
+-	memcpy(args, &regs->ARM_r1 + i, n * sizeof(args[0]));
++	memcpy(args, &regs->ARM_r0 + i, n * sizeof(args[0]));
+ }
+ 
+ static inline void syscall_set_arguments(struct task_struct *task,
+@@ -64,7 +64,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
+ 					 const unsigned long *args)
+ {
+ 	BUG_ON(i + n > 6);
+-	memcpy(&regs->ARM_r1 + i, args, n * sizeof(args[0]));
++	memcpy(&regs->ARM_r0 + i, args, n * sizeof(args[0]));
+ }
+ 
+ static inline int syscall_get_arch(struct task_struct *task,
+-- 
+2.10.0
+

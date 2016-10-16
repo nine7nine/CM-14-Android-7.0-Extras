@@ -1,0 +1,80 @@
+From 51db3fa47e252e4154af2bd1360f5498ff9f9bbf Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Wed, 18 Jan 2012 15:00:56 -0600
+Subject: [PATCH 772/988] arch/x86: add syscall_get_arch to syscall.h
+
+Add syscall_get_arch() to export the current AUDIT_ARCH_* based on system call
+entry path.
+
+Signed-off-by: Will Drewry <wad@chromium.org>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Reviewed-by: H. Peter Anvin <hpa@zytor.com>
+Acked-by: Eric Paris <eparis@redhat.com>
+
+v18: - update comment about x32 tasks
+     - rebase to v3.4-rc2
+v17: rebase and reviewed-by
+v14: rebase/nochanges
+v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
+---
+ arch/x86/include/asm/syscall.h | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
+index 1d82a11..2e188d6 100644
+--- a/arch/x86/include/asm/syscall.h
++++ b/arch/x86/include/asm/syscall.h
+@@ -13,9 +13,11 @@
+ #ifndef _ASM_X86_SYSCALL_H
+ #define _ASM_X86_SYSCALL_H
+ 
++#include <linux/audit.h>
+ #include <linux/sched.h>
+ #include <linux/err.h>
+ #include <asm/asm-offsets.h>	/* For NR_syscalls */
++#include <asm/thread_info.h>	/* for TS_COMPAT */
+ #include <asm/unistd.h>
+ 
+ extern const unsigned long sys_call_table[];
+@@ -88,6 +90,12 @@ static inline void syscall_set_arguments(struct task_struct *task,
+ 	memcpy(&regs->bx + i, args, n * sizeof(args[0]));
+ }
+ 
++static inline int syscall_get_arch(struct task_struct *task,
++				   struct pt_regs *regs)
++{
++	return AUDIT_ARCH_I386;
++}
++
+ #else	 /* CONFIG_X86_64 */
+ 
+ static inline void syscall_get_arguments(struct task_struct *task,
+@@ -212,6 +220,25 @@ static inline void syscall_set_arguments(struct task_struct *task,
+ 		}
+ }
+ 
++static inline int syscall_get_arch(struct task_struct *task,
++				   struct pt_regs *regs)
++{
++#ifdef CONFIG_IA32_EMULATION
++	/*
++	 * TS_COMPAT is set for 32-bit syscall entry and then
++	 * remains set until we return to user mode.
++	 *
++	 * TIF_IA32 tasks should always have TS_COMPAT set at
++	 * system call time.
++	 *
++	 * x32 tasks should be considered AUDIT_ARCH_X86_64.
++	 */
++	if (task_thread_info(task)->status & TS_COMPAT)
++		return AUDIT_ARCH_I386;
++#endif
++	/* Both x32 and x86_64 are considered "64-bit". */
++	return AUDIT_ARCH_X86_64;
++}
+ #endif	/* CONFIG_X86_32 */
+ 
+ #endif	/* _ASM_X86_SYSCALL_H */
+-- 
+2.10.0
+

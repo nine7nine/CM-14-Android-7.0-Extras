@@ -1,0 +1,117 @@
+From 1c0d3dfae668924c9d53bd85548903af4e3224c8 Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Mon, 16 Apr 2012 14:11:17 -0500
+Subject: [PATCH 785/988] CHROMIUM: arch/arm: add asm/syscall.h
+
+(I will post this upstream after the 3.5 merge window)
+
+Provide an ARM implementation for asm-generic/syscall.h.
+This is a pre-requisite for CONFIG_HAVE_ARCH_TRACEHOOK and
+CONFIG_HAVE_ARCH_SECCOMP_FILTER.  The latter is the forcing
+function for this patch.
+
+Change-Id: Idc5fa7b72691ec9d75418849733633df33482e53
+Signed-off-by: Will Drewry <wad@chromium.org>
+
+BUG=chromium-os:27878
+TEST=compiles for arm. Need to test on a live machine.
+
+Change-Id: I7b911b51085424aedd2beaf40683c3348b6cede1
+Reviewed-on: https://gerrit.chromium.org/gerrit/21375
+Reviewed-by: Will Drewry <wad@chromium.org>
+Tested-by: Will Drewry <wad@chromium.org>
+Signed-off-by: Sasha Levitskiy <sanek@google.com>
+---
+ arch/arm/include/asm/syscall.h | 80 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 80 insertions(+)
+ create mode 100644 arch/arm/include/asm/syscall.h
+
+diff --git a/arch/arm/include/asm/syscall.h b/arch/arm/include/asm/syscall.h
+new file mode 100644
+index 0000000..2834036
+--- /dev/null
++++ b/arch/arm/include/asm/syscall.h
+@@ -0,0 +1,80 @@
++/*
++ * Access to user system call parameters and results
++ *
++ * Copyright (C) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ *
++ * This copyrighted material is made available to anyone wishing to use,
++ * modify, copy, or redistribute it subject to the terms and conditions
++ * of the GNU General Public License v.2.
++ *
++ * See asm-generic/syscall.h for descriptions of what we must do here.
++ */
++#ifndef _ASM_ARM_SYSCALL_H
++#define _ASM_ARM_SYSCALL_H
++
++#include <linux/audit.h> /* for AUDIT_ARCH_* */
++#include <linux/elf.h> /* for ELF_EM */
++#include <linux/sched.h>
++#include <linux/thread_info.h> /* for task_thread_info */
++#include <linux/err.h>
++
++static inline int syscall_get_nr(struct task_struct *task, struct pt_regs *regs)
++{
++	return task_thread_info(task)->syscall;
++}
++
++static inline void syscall_rollback(struct task_struct *task,
++				    struct pt_regs *regs)
++{
++	regs->ARM_r0 = regs->ARM_ORIG_r0;
++}
++
++static inline long syscall_get_error(struct task_struct *task,
++				     struct pt_regs *regs)
++{
++	unsigned long error = regs->ARM_r0;
++	return IS_ERR_VALUE(error) ? error : 0;
++}
++
++static inline long syscall_get_return_value(struct task_struct *task,
++					    struct pt_regs *regs)
++{
++	return regs->ARM_r0;
++}
++
++static inline void syscall_set_return_value(struct task_struct *task,
++					    struct pt_regs *regs,
++					    int error, long val)
++{
++	regs->ARM_r0 = (long) error ?: val;
++}
++
++static inline void syscall_get_arguments(struct task_struct *task,
++					 struct pt_regs *regs,
++					 unsigned int i, unsigned int n,
++					 unsigned long *args)
++{
++	BUG_ON(i + n > 6);
++	memcpy(args, &regs->ARM_r1 + i, n * sizeof(args[0]));
++}
++
++static inline void syscall_set_arguments(struct task_struct *task,
++					 struct pt_regs *regs,
++					 unsigned int i, unsigned int n,
++					 const unsigned long *args)
++{
++	BUG_ON(i + n > 6);
++	memcpy(&regs->ARM_r1 + i, args, n * sizeof(args[0]));
++}
++
++static inline int syscall_get_arch(struct task_struct *task,
++				    struct pt_regs *regs)
++{
++	/* ARM tasks don't change audit architectures on the fly. */
++#ifdef __ARMEB__
++	return AUDIT_ARCH_ARMEB;
++#else
++	return AUDIT_ARCH_ARM;
++#endif
++}
++#endif	/* _ASM_ARM_SYSCALL_H */
+-- 
+2.10.0
+

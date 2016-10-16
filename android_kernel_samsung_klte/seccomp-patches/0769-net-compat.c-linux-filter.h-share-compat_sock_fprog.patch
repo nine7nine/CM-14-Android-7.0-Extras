@@ -1,0 +1,76 @@
+From b21e3a10f9250af848aacc92fb97149eb88d27f0 Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Wed, 22 Feb 2012 10:59:31 -0600
+Subject: [PATCH 769/988] net/compat.c,linux/filter.h: share compat_sock_fprog
+
+Any other users of bpf_*_filter that take a struct sock_fprog from
+userspace will need to be able to also accept a compat_sock_fprog
+if the arch supports compat calls.  This change allows the existing
+compat_sock_fprog be shared.
+
+Signed-off-by: Will Drewry <wad@chromium.org>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Eric Paris <eparis@redhat.com>
+
+v18: tasered by the apostrophe police
+v14: rebase/nochanges
+v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
+v12: rebase on to linux-next
+v11: introduction
+---
+ include/linux/filter.h | 11 +++++++++++
+ net/compat.c           |  8 --------
+ 2 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index aaa2e80..f2e5315 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -10,6 +10,7 @@
+ 
+ #ifdef __KERNEL__
+ #include <linux/atomic.h>
++#include <linux/compat.h>
+ #endif
+ 
+ /*
+@@ -132,6 +133,16 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ 
+ #ifdef __KERNEL__
+ 
++#ifdef CONFIG_COMPAT
++/*
++ * A struct sock_filter is architecture independent.
++ */
++struct compat_sock_fprog {
++	u16		len;
++	compat_uptr_t	filter;		/* struct sock_filter * */
++};
++#endif
++
+ struct sk_buff;
+ struct sock;
+ 
+diff --git a/net/compat.c b/net/compat.c
+index 014e1c7..93248dc 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -328,14 +328,6 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
+ 	__scm_destroy(scm);
+ }
+ 
+-/*
+- * A struct sock_filter is architecture independent.
+- */
+-struct compat_sock_fprog {
+-	u16		len;
+-	compat_uptr_t	filter;		/* struct sock_filter * */
+-};
+-
+ static int do_set_attach_filter(struct socket *sock, int level, int optname,
+ 				char __user *optval, unsigned int optlen)
+ {
+-- 
+2.10.0
+

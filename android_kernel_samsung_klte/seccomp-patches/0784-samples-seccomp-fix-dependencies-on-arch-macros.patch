@@ -1,0 +1,103 @@
+From 0d382732bdea7a7e56f145aba577681d92a5699a Mon Sep 17 00:00:00 2001
+From: Will Drewry <wad@chromium.org>
+Date: Wed, 18 Apr 2012 17:53:16 -0500
+Subject: [PATCH 784/988] samples/seccomp: fix dependencies on arch macros
+
+This change fixes the compilation error reported for
+i386 allmodconfig here:
+  http://kisskb.ellerman.id.au/kisskb/buildresult/6123842/
+
+Logic attempting to predict the host architecture has been
+removed from the Makefile.  Instead, the bpf-direct sample
+should now compile on any architecture, but if the architecture
+is not supported, it will compile a minimal main() function.
+
+This change also ensures the samples are not compiled when
+there is no seccomp filter support.
+
+Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Suggested-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Will Drewry <wad@chromium.org>
+---
+ samples/seccomp/Makefile     | 12 +++---------
+ samples/seccomp/bpf-direct.c | 18 ++++++++++++++++--
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/samples/seccomp/Makefile b/samples/seccomp/Makefile
+index e8fe0f5..16aa2d4 100644
+--- a/samples/seccomp/Makefile
++++ b/samples/seccomp/Makefile
+@@ -1,27 +1,21 @@
+ # kbuild trick to avoid linker error. Can be omitted if a module is built.
+ obj- := dummy.o
+ 
+-hostprogs-$(CONFIG_SECCOMP) := bpf-fancy dropper
+-bpf-fancy-objs := bpf-fancy.o bpf-helper.o
++hostprogs-$(CONFIG_SECCOMP_FILTER) := bpf-fancy dropper bpf-direct
+ 
+ HOSTCFLAGS_bpf-fancy.o += -I$(objtree)/usr/include
+ HOSTCFLAGS_bpf-fancy.o += -idirafter $(objtree)/include
+ HOSTCFLAGS_bpf-helper.o += -I$(objtree)/usr/include
+ HOSTCFLAGS_bpf-helper.o += -idirafter $(objtree)/include
++bpf-fancy-objs := bpf-fancy.o bpf-helper.o
+ 
+ HOSTCFLAGS_dropper.o += -I$(objtree)/usr/include
+ HOSTCFLAGS_dropper.o += -idirafter $(objtree)/include
+ dropper-objs := dropper.o
+ 
+-# bpf-direct.c is x86-only.
+-ifeq ($(SRCARCH),x86)
+-# List of programs to build
+-hostprogs-$(CONFIG_SECCOMP) += bpf-direct
+-bpf-direct-objs := bpf-direct.o
+-endif
+-
+ HOSTCFLAGS_bpf-direct.o += -I$(objtree)/usr/include
+ HOSTCFLAGS_bpf-direct.o += -idirafter $(objtree)/include
++bpf-direct-objs := bpf-direct.o
+ 
+ # Try to match the kernel target.
+ ifeq ($(CONFIG_64BIT),)
+diff --git a/samples/seccomp/bpf-direct.c b/samples/seccomp/bpf-direct.c
+index 26f523e..151ec3f 100644
+--- a/samples/seccomp/bpf-direct.c
++++ b/samples/seccomp/bpf-direct.c
+@@ -8,6 +8,11 @@
+  * and can serve as a starting point for developing
+  * applications using prctl(PR_SET_SECCOMP, 2, ...).
+  */
++#if defined(__i386__) || defined(__x86_64__)
++#define SUPPORTED_ARCH 1
++#endif
++
++#if defined(SUPPORTED_ARCH)
+ #define __USE_GNU 1
+ #define _GNU_SOURCE 1
+ 
+@@ -43,8 +48,6 @@
+ #define REG_ARG3	REG_R10
+ #define REG_ARG4	REG_R8
+ #define REG_ARG5	REG_R9
+-#else
+-#error Unsupported platform
+ #endif
+ 
+ #ifndef PR_SET_NO_NEW_PRIVS
+@@ -174,3 +177,14 @@ int main(int argc, char **argv)
+ 		payload("Error message going to STDERR\n"));
+ 	return 0;
+ }
++#else	/* SUPPORTED_ARCH */
++/*
++ * This sample is x86-only.  Since kernel samples are compiled with the
++ * host toolchain, a non-x86 host will result in using only the main()
++ * below.
++ */
++int main(void)
++{
++	return 1;
++}
++#endif	/* SUPPORTED_ARCH */
+-- 
+2.10.0
+
