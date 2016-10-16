@@ -8,14 +8,14 @@ Each folder name matches their corresponding folder in AOSP tree, where the patc
 
 however, there are a couple of noteable exceptions; 
 
-- PrivacygaurdXposed 
+# PrivacygaurdXposed 
 
 A partial merge of AppOppsXposed into Cyanogenmod (It works very similarily to the xposed plugin, allowing the 
 user to modify system app permission and exposing permissions that would normally be hidden. It's located here; 
 
 package_apps_settings/app_settings_privacyguard_xposed_N.patch
 
-- android_kernel_samsung_klte
+# android_kernel_samsung_klte
 
 This folder contains patches for klte. These include;
 
