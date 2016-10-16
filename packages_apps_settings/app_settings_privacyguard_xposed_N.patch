@@ -6,7 +6,11 @@ spawning model; found in CopperheadOS (my CM rom uses this). Xposed
 relies on Zygote being the parent process of every other process, 
 in order to be able to hook into them and modify their behavior.
 however, this simply breaks when using the traditional 
-unix exec/fork spwaning model.
+unix exec/fork spawning mode... Having zygote as the parent process 
+might be percieved as being a security hole that Xposed is 
+leveraging. While Xposed provides a lot of nice functionality, it's 
+hard to verify any of it's plugins and could be abused easily
+by a malicious plugin developer. 
 
 Therefore, this patch replicates most of the same functionality as
 I would get from having AppOppXposed, without needing Xposed. 
