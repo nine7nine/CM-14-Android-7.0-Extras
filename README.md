@@ -1,64 +1,36 @@
 # CM-14-Android-7.0-Patchwork
 
-This repository conatins patchwork that can be used with Cyanogenmod 14 / Nougat. 
+This repository conatins patchwork that I use with Cyanogenmod 14 / Nougat. Most of the Android userspace
+portions are derived from CopperheadOS - Features, such as; exec/fork spawning model, random mac address and
+other hardening / security focused functionality.
 
-Each folder name matches the folder in AOSP tree, where the patches are to be applied;
+Each folder name matches their corresponding folder in AOSP tree, where the patches are to be applied.
 
-# packages_apps_settings  
+however, there are a couple of noteable exceptions; 
 
-* 0-app_settings_random_mac-toggle_N.patch 
+- PrivacygaurdXposed 
 
-A patch from CopperheadOS. Enables Mac Address Randomization. * Requires kernel support and adding the corresponding patch to
-platform_system_core ; 'random_mac_property.patch' (below). Original Patch; 
-https://github.com/CopperheadOS/platform_packages_apps_Settings/commit/6152b998216b36a95260918adf519302ac847ed3 
+A partial merge of AppOppsXposed into Cyanogenmod (It works very similarily to the xposed plugin, allowing the 
+user to modify system app permission and exposing permissions that would normally be hidden. It's located here; 
 
-* app_settings_privacyguard_xposed_N.patch 
+package_apps_settings/app_settings_privacyguard_xposed_N.patch
 
-A patch that I wrote for Android M (and forwarded to N) that makes PrivacyGaurd in CM behave more like AppOppsXposed module 
-for the Xposed framework. Most of the code was adapted from the AppOppsXposed source code, Found here; https://github.com/jclehner/AppOpsXposed ... 
+- android_kernel_samsung_klte
 
-This modification enables all of the permissions that Cyanogenmod hides or doesn't allow you to change. 
+This folder contains patches for klte. These include;
 
-IMPROTANT NOTE: You can also modify system apps permissions, which can be very dangerous - great care must be taken, or you 
-could break something, usually resulting in a bootloop! ... I mainly find this helpful to identify what permissions (system) 
-apps may be using. However, there are cases where you may want to disable a particular permission, since not all system apps 
-may necessarily trusted by the user (I'm thinking of some Google apps here! lol). But I only do this ; when I know that 
-it won't cause issues *and/or* I have made a backup and can revert settings, it it breaks something. 
+* performance optimizations
+* upstream backports
+* seccomp_filter/bpf support (from chromiumOS)
+* randomized mac address support (from CopperheadOS)
 
-# platform_system_core 
+Currently, I am working on upstreaming the seccomp_filter support. However, in the meantime, if you want the seccomp_filter 
+support; you must copy all of the patches from with the ./seccomp-patches folder into the klte kernel sources, then run; 
 
-* random_mac_property.patch 
+"git am *.patch" 
 
-Adds a property for enabling Mac address randomization, requires kernel and settings app support. Original Patch;
-https://github.com/CopperheadOS/platform_system_core/commit/53952b7938aa16b570f1ac709db2fffa46ff59e9
+To apply all of the patches found within the /patches folder; you must copy the /patches folder and patchkernel.sh script into the kernel sources, then run ./patchkernel.sh.
 
-* tighten_tcp-ip_settings.patch 
+NOTE: They should be applied in this order.
 
-(tightens up tcp-ip settings) Original Patch;
-https://github.com/CopperheadOS/platform_system_core/commit/3dc7911571e268d1b93d02d09847f30e74dc9246
-
-# android_kernel_samsung_klte
- 
-This folder contains patchwork that can be added to CM14's Galaxy s5 kernel sources. The patches folder && patchkernel.sh 
-script must be copied into the kernel sources (and applied using the script). 
-
-* ../patches folder 
-
-contains all of the patchwork that I have accumulated for klte; mostly backports, optimizations and additional featurers;
-seccomp-bpf, bits from grsec, linaro-gcc-5.2.1 toolchain support (disabled for now), randomized mac address support (to be used 
-with the above patches), etc... 
-
-There are too many patches to cover in detail, but I would note that the patchwork comes from a variety of different sources;
-various github / android kernels, upstream linux (backports, ranging from linux-3.5 - 4.x), CopperheadOS github, samsung code 
-drops, etc.
-
-* patchkernel.sh
-
-A script used to apply the patches from within the kernel sources. each patch is echoed as a number, so that if a patch breaks; 
-it will be easy to tell which one failed to apply. This is helpful when rebasing conflicts that may occur due to new commits.
-
-# android_build  
-
-* optional_automated_build_cutom_key_signing_N.patch
-
-more info here: https://github.com/nine7nine/android_build
+...For applying any of the other patchsets, I would review them - as I won't be giving any support on using them. So you should be familiar with patching AOSP, using "git am", "patch", "diff" and resolving merging conflicts, as the Cyamogenmod and AOSP source trees are moving targets and can break patches at any time.
