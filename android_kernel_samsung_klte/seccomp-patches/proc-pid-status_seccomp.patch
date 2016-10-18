@@ -1,0 +1,81 @@
+From 2f4b3bf6b2318cfaa177ec5a802f4d8d6afbd816 Mon Sep 17 00:00:00 2001
+From: Kees Cook <keescook@chromium.org>
+Date: Mon, 17 Dec 2012 16:03:14 -0800
+Subject: /proc/pid/status: add "Seccomp" field
+
+It is currently impossible to examine the state of seccomp for a given
+process.  While attaching with gdb and attempting "call
+prctl(PR_GET_SECCOMP,...)" will work with some situations, it is not
+reliable.  If the process is in seccomp mode 1, this query will kill the
+process (prctl not allowed), if the process is in mode 2 with prctl not
+allowed, it will similarly be killed, and in weird cases, if prctl is
+filtered to return errno 0, it can look like seccomp is disabled.
+
+When reviewing the state of running processes, there should be a way to
+externally examine the seccomp mode.  ("Did this build of Chrome end up
+using seccomp?" "Did my distro ship ssh with seccomp enabled?")
+
+This adds the "Seccomp" line to /proc/$pid/status.
+
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Cyrill Gorcunov <gorcunov@openvz.org>
+Cc: Andrea Arcangeli <aarcange@redhat.com>
+Cc: James Morris <jmorris@namei.org>
+Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ Documentation/filesystems/proc.txt | 2 ++
+ fs/proc/array.c                    | 8 ++++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
+index 74cb394..12665ee 100644
+--- a/Documentation/filesystems/proc.txt
++++ b/Documentation/filesystems/proc.txt
+@@ -181,6 +181,7 @@ read the file /proc/PID/status:
+   CapPrm: 0000000000000000
+   CapEff: 0000000000000000
+   CapBnd: ffffffffffffffff
++  Seccomp:        0
+   voluntary_ctxt_switches:        0
+   nonvoluntary_ctxt_switches:     1
+ 
+@@ -237,6 +238,7 @@ Table 1-2: Contents of the status files (as of 2.6.30-rc7)
+  CapPrm                      bitmap of permitted capabilities
+  CapEff                      bitmap of effective capabilities
+  CapBnd                      bitmap of capabilities bounding set
++ Seccomp                     seccomp mode, like prctl(PR_GET_SECCOMP, ...)
+  Cpus_allowed                mask of CPUs on which this process may run
+  Cpus_allowed_list           Same as previous, but in "list format"
+  Mems_allowed                mask of memory nodes allowed to this process
+diff --git a/fs/proc/array.c b/fs/proc/array.c
+index 377a373..077235f 100644
+--- a/fs/proc/array.c
++++ b/fs/proc/array.c
+@@ -336,6 +336,13 @@ static inline void task_cap(struct seq_file *m, struct task_struct *p)
+ 	render_cap_t(m, "CapBnd:\t", &cap_bset);
+ }
+ 
++static inline void task_seccomp(struct seq_file *m, struct task_struct *p)
++{
++#ifdef CONFIG_SECCOMP
++	seq_printf(m, "Seccomp:\t%d\n", p->seccomp.mode);
++#endif
++}
++
+ static inline void task_context_switch_counts(struct seq_file *m,
+ 						struct task_struct *p)
+ {
+@@ -369,6 +376,7 @@ int proc_pid_status(struct seq_file *m, struct pid_namespace *ns,
+ 	}
+ 	task_sig(m, task);
+ 	task_cap(m, task);
++	task_seccomp(m, task);
+ 	task_cpus_allowed(m, task);
+ 	cpuset_task_status_allowed(m, task);
+ 	task_context_switch_counts(m, task);
+-- 
+cgit v0.12
+
+
