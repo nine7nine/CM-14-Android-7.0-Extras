@@ -60,17 +60,15 @@ echo "24"
 patch -Np1 < ./patches/766-bcmhd_reduce-wakelocks.patch
 #echo "25"
 #patch -Np1 < ./patches/compiler-gcc5.patch
-echo "26"
+#echo "26"
 #patch -Np1 < ./patches/3.4-gcc5.patch
-#echo "28"
+#echo "27"
 #patch -Np1 < ./patches/more-3.4_gcc5x_fixups.patch
-#echo "29"
-patch -Np1 < ./patches/lx314-backport_fstackprotector_strong.patch
-echo "31"
+#echo "28"
 patch -Np1 < ./patches/lx34LTS_google_fixups.patch
-#echo "32"
+#echo "29"
 #patch -Np1 < ./patches/XXX-section_mismatch_fixups_for_linaro-GCC-5.2.1.patch
-echo "33"
+echo "30"
 patch -Np1 < ./patches/XXX-enable_my_extra_configs.patch
 
 exit
