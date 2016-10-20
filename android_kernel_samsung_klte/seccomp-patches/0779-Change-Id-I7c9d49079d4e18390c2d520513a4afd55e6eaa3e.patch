@@ -12,16 +12,17 @@ diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
 index b1478f4..357953f 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -81,7 +81,8 @@ config X86
+@@ -82,7 +82,8 @@ config X86
  	select CLKEVT_I8253
  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
  	select GENERIC_IOMAP
 -	select DCACHE_WORD_ACCESS
 +	select DCACHE_WORD_ACCESS if !DEBUG_PAGEALLOC
 +	select HAVE_ARCH_SECCOMP_FILTER
+ 	select HAVE_CC_STACKPROTECTOR
  
  config INSTRUCTION_DECODER
- 	def_bool (KPROBES || PERF_EVENTS)
+
 diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
 index c4410fb..9ee1787 100644
 --- a/arch/x86/kernel/ptrace.c
