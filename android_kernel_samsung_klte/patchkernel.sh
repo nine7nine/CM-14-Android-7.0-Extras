@@ -14,8 +14,8 @@ echo "0"
 patch -Np1 < ./patches/qdsp6v2_mm_fixup.patch 
 echo "1"
 patch -Np1 < ./patches/4-random-mac.patch
-echo "2"
-patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
+#echo "2"
+#patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
 echo "3"
 patch -Np1 < ./patches/11-softirq_reduce_latencies.patch
 echo "4"
