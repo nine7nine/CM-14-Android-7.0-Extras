@@ -23,6 +23,7 @@ This folder contains patches for klte. These include;
 * upstream backports
 * seccomp_filter/bpf support (from chromiumOS)
 * randomized mac address support (from CopperheadOS)
+* Yama Stacking support (backported, allows blocking ptrace usage)
 
 Currently, I am working on upstreaming the seccomp_filter support. However, in the meantime, if you want the seccomp_filter 
 support; you must copy all of the patches from within the ./seccomp-patches folder into the root directory of the klte kernel sources, then run; "git am *.patch" 
