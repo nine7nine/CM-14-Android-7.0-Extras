@@ -14,8 +14,8 @@ echo "0"
 patch -Np1 < ./patches/qdsp6v2_mm_fixup.patch 
 echo "1"
 patch -Np1 < ./patches/4-random-mac.patch
-#echo "2"
-#patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
+echo "2"
+patch -Np1 < ./patches/0014-lib-int_sqrt.c-optimize-square-root-algorithm.patch
 echo "3"
 patch -Np1 < ./patches/11-softirq_reduce_latencies.patch
 echo "4"
@@ -66,11 +66,15 @@ patch -Np1 < ./patches/766-bcmhd_reduce-wakelocks.patch
 #patch -Np1 < ./patches/more-3.4_gcc5x_fixups.patch
 #echo "29"
 #patch -Np1 < ./patches/lx314-backport_fstackprotector_strong.patch
-echo "31"
+echo "30"
 patch -Np1 < ./patches/lx34LTS_google_fixups.patch
-#echo "32"
+#echo "31"
 #patch -Np1 < ./patches/XXX-section_mismatch_fixups_for_linaro-GCC-5.2.1.patch
+echo "32"
+patch -Np1 < ./patches/0-yama.patch
 echo "33"
+patch -Np1 < ./patches/1-yama.patch
+echo "34"
 patch -Np1 < ./patches/XXX-enable_my_extra_configs.patch
 
 exit
