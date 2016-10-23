@@ -2,9 +2,9 @@ this is a hack I came up with to do a partial merge of AppOppsXposed
 plugin into PrivacyGaurd/AppOpps in CM. Reason:
 
 Xposed framework cannot work on roms that are using the exec/fork 
-spawning model; found in CopperheadOS (my CM rom uses this). Xposed 
-relies on Zygote being the parent process of every other process, 
-in order to be able to hook into apps/processes and modify their 
+spawning model; found in CopperheadOS. Xposed relies on Zygote 
+being the parent process of every other process, in order to 
+be able to hook into apps/processes and modify their 
 behavior. However, that method doesn't when using the traditional 
 unix exec/fork spawning mode... Xposed's methods could be perceived 
 as an exploitation/circumventing security and be potentially 
