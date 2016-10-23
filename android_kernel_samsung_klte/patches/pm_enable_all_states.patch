@@ -1,0 +1,83 @@
+--- /home/ninez/android/system/kernel/samsung/klte/arch/arm/mach-msm/pm-data.c.orig	2016-10-22 22:35:52.269501595 -0400
++++ /home/ninez/android/system/kernel/samsung/klte/arch/arm/mach-msm/pm-data.c	2016-10-22 22:34:18.340974774 -0400
+@@ -24,15 +24,15 @@
+ 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_RETENTION)] = {
+ 		.idle_supported = 1,
+-		.suspend_supported = 0,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.suspend_supported = 1,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+@@ -52,15 +52,15 @@
+ 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_RETENTION)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+@@ -80,15 +80,15 @@
+ 	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_RETENTION)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {
+@@ -108,15 +108,15 @@
+ 	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_RETENTION)] = {
+ 		.idle_supported = 1,
+ 		.suspend_supported = 1,
+-		.idle_enabled = 0,
+-		.suspend_enabled = 0,
++		.idle_enabled = 1,
++		.suspend_enabled = 1,
+ 	},
+ 
+ 	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT)] = {

@@ -75,6 +75,8 @@ patch -Np1 < ./patches/0-yama.patch
 echo "33"
 patch -Np1 < ./patches/1-yama.patch
 echo "34"
+patch -Np1 < ./patches/pm_enable_all_states.patch
+echo "35"
 patch -Np1 < ./patches/XXX-enable_my_extra_configs.patch
 
 exit
