@@ -36,11 +36,14 @@ NOTE: They should probably be applied in this order.
 
 # no_analytics
 
-This folder contains patches to remove CMStats / Anomymous Statistic reporting from cm14. No reason to have it, when you aren't using a regular CM14 rom. It also collects too much information and is a potential security vulnerablity.
+This folder contains patches to remove CMStats / Anomymous Statistics Reporting features from cm14. No reason to have it, when I'm not using a regular CM14 rom. *It also could be viewed as potential security concern / attack vector.
 
 the patch names indicate what folders that are to be applied to;
 
-* ../vendor/cm && ../vendor/cmsdk
-* ../packages/apps/CMParts && ../packages/SetupWizard
+* ../vendor/cm 
+* ../vendor/cmsdk
+* ../packages/apps/CMParts
+* ../packages/SetupWizard
 
-Thankfully, at this point CM hasn't added back analytics to dialer and contacts apps, like in cm13. 
+Thankfully, at this point CM hasn't added back analytics to dialer and contacts apps, like in cm13 && on top of that due to
+refactoring of the code, it's less of a pain to remove! ;-)
