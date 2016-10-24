@@ -1,6 +1,6 @@
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/proguard.flags /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/proguard.flags
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/proguard.flags	2016-10-13 11:02:23.919344000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/proguard.flags	2016-10-24 12:55:35.828946354 -0400
+diff -Nur -i -X dontdiff proguard.flags proguard.flags
+--- proguard.flags	2016-10-13 11:02:23.919344000 -0400
++++ proguard.flags	2016-10-24 12:55:35.828946354 -0400
 @@ -3,7 +3,6 @@
  -keep class org.cyanogenmod.cmparts.*Picker
  -keep class org.cyanogenmod.cmparts.*Settings
@@ -9,9 +9,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
  -keep class org.cyanogenmod.cmparts.contributors.*
  -keep class org.cyanogenmod.cmparts.hardware.*
  -keep class org.cyanogenmod.cmparts.input.*
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java
+--- src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/AnonymousStats.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,101 +0,0 @@
 -/*
 - * Copyright (C) 2015 The CyanogenMod Project
@@ -114,9 +114,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
 -        return lastId;
 -    }
 -}
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/PreviewData.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/PreviewData.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/PreviewData.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/PreviewData.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/PreviewData.java src/org/cyanogenmod/cmparts/cmstats/PreviewData.java
+--- src/org/cyanogenmod/cmparts/cmstats/PreviewData.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/PreviewData.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,49 +0,0 @@
 -/*
 - * Copyright (C) 2012 The CyanogenMod Project
@@ -167,9 +167,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
 -        prefSet.findPreference(CARRIER).setSummary(Utilities.getCarrier(context));
 -    }
 -}
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingService.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingService.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingService.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingService.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/ReportingService.java src/org/cyanogenmod/cmparts/cmstats/ReportingService.java
+--- src/org/cyanogenmod/cmparts/cmstats/ReportingService.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/ReportingService.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,106 +0,0 @@
 -/*
 - * Copyright (C) 2015 The CyanogenMod Project
@@ -277,9 +277,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
 -        ReportingServiceManager.setAlarm(this);
 -    }
 -}
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java
+--- src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/ReportingServiceManager.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,123 +0,0 @@
 -/*
 - * Copyright (C) 2012 The CyanogenMod Project
@@ -404,9 +404,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
 -    }
 -
 -}
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java
+--- src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/StatsUploadJobService.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,291 +0,0 @@
 -/*
 - * Copyright (C) 2015 The CyanogenMod Project
@@ -699,9 +699,9 @@ diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/pa
 -    }
 -
 -}
-diff -Nur -i -X dontdiff /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/Utilities.java /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/Utilities.java
---- /home/ninez/android/Remove_anaylitics/cm14/analytics/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/Utilities.java	2016-10-08 16:37:49.562365000 -0400
-+++ /home/ninez/android/Remove_anaylitics/cm14/analytics_removed/packages/apps/CMParts/src/org/cyanogenmod/cmparts/cmstats/Utilities.java	1969-12-31 19:00:00.000000000 -0500
+diff -Nur -i -X dontdiff src/org/cyanogenmod/cmparts/cmstats/Utilities.java src/org/cyanogenmod/cmparts/cmstats/Utilities.java
+--- src/org/cyanogenmod/cmparts/cmstats/Utilities.java	2016-10-08 16:37:49.562365000 -0400
++++ src/org/cyanogenmod/cmparts/cmstats/Utilities.java	1969-12-31 19:00:00.000000000 -0500
 @@ -1,102 +0,0 @@
 -/*
 - * Copyright (C) 2012 The CyanogenMod Project
