@@ -1,0 +1,98 @@
+diff -Nur -i -X dontdiff host/migration/src/CMSettings.java host/migration/src/CMSettings.java
+--- host/migration/src/CMSettings.java	2016-10-09 12:47:34.258849000 -0400
++++ host/migration/src/CMSettings.java	2016-10-24 12:09:14.261446944 -0400
+@@ -848,12 +848,6 @@
+         public static final String QS_USE_MAIN_TILES = "sysui_qs_main_tiles";
+ 
+         /**
+-         * Global stats collection
+-         * @hide
+-         */
+-        public static final String STATS_COLLECTION = "stats_collection";
+-
+-        /**
+          * Boolean value whether to link ringtone and notification volume
+          *
+          * @hide
+@@ -1036,7 +1030,6 @@
+                 CMSettings.Secure.DEV_FORCE_SHOW_NAVBAR,
+                 CMSettings.Secure.KEYBOARD_BRIGHTNESS,
+                 CMSettings.Secure.POWER_MENU_ACTIONS,
+-                CMSettings.Secure.STATS_COLLECTION,
+                 CMSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
+                 CMSettings.Secure.QS_TILES,
+                 CMSettings.Secure.QS_USE_MAIN_TILES,
+diff -Nur -i -X dontdiff packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMDatabaseHelper.java packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMDatabaseHelper.java
+--- packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMDatabaseHelper.java	2016-10-08 16:41:33.796994000 -0400
++++ packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMDatabaseHelper.java	2016-10-24 12:09:14.261446944 -0400
+@@ -337,9 +337,6 @@
+             loadBooleanSetting(stmt, CMSettings.Secure.QS_USE_MAIN_TILES,
+                     R.bool.def_sysui_qs_main_tiles);
+ 
+-            loadBooleanSetting(stmt, CMSettings.Secure.STATS_COLLECTION,
+-                    R.bool.def_stats_collection);
+-
+             loadBooleanSetting(stmt, CMSettings.Secure.LOCKSCREEN_VISUALIZER_ENABLED,
+                     R.bool.def_lockscreen_visualizer);
+ 
+diff -Nur -i -X dontdiff packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMSettingsProvider.java packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMSettingsProvider.java
+--- packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMSettingsProvider.java	2016-10-08 16:41:33.796994000 -0400
++++ packages/CMSettingsProvider/src/org/cyanogenmod/cmsettings/CMSettingsProvider.java	2016-10-24 12:09:14.261446944 -0400
+@@ -208,12 +208,9 @@
+             else if (tableName.equals(CMDatabaseHelper.CMTableNames.TABLE_SECURE)) {
+                 settingsValue = Settings.Secure.getStringForUser(contentResolver, settingsKey,
+                         userId);
+-                if (settingsValue != null && settingsKey.equals(CMSettings.Secure.STATS_COLLECTION)
+-                        && CMSettings.Secure.getStringForUser(contentResolver, settingsKey, userId)
++                if (settingsValue != null && CMSettings.Secure.getStringForUser(contentResolver, 
++                        settingsKey, userId)
+                         != null) {
+-                    // incorrect migration from YOG4P -> YOG7D failed to remove
+-                    // Settings.Secure.STATS_COLLECTION after migration; so it may exist in both
+-                    // providers; so if it exists in the new database, prefer it.
+                     continue;
+                 }
+ 
+diff -Nur -i -X dontdiff packages/CMSettingsProvider/tests/src/org/cyanogenmod/cmsettings/tests/CMSettingsProviderDefaultsTest.java packages/CMSettingsProvider/tests/src/org/cyanogenmod/cmsettings/tests/CMSettingsProviderDefaultsTest.java
+--- packages/CMSettingsProvider/tests/src/org/cyanogenmod/cmsettings/tests/CMSettingsProviderDefaultsTest.java	2016-10-08 16:41:33.800327000 -0400
++++ packages/CMSettingsProvider/tests/src/org/cyanogenmod/cmsettings/tests/CMSettingsProviderDefaultsTest.java	2016-10-24 12:09:14.261446944 -0400
+@@ -93,9 +93,6 @@
+                 CMSettings.Secure.QS_USE_MAIN_TILES,
+                 "R.bool.def_sysui_qs_main_tiles"));
+         SECURE_SETTINGS_DEFAULTS.add(new Setting(
+-                CMSettings.Secure.STATS_COLLECTION,
+-                "R.bool.def_stats_collection"));
+-        SECURE_SETTINGS_DEFAULTS.add(new Setting(
+                 CMSettings.Secure.LOCKSCREEN_VISUALIZER_ENABLED,
+                 "R.bool.def_lockscreen_visualizer"));
+         SECURE_SETTINGS_DEFAULTS.add(new Setting(
+diff -Nur -i -X dontdiff sdk/src/java/cyanogenmod/providers/CMSettings.java sdk/src/java/cyanogenmod/providers/CMSettings.java
+--- sdk/src/java/cyanogenmod/providers/CMSettings.java	2016-10-20 11:25:07.720288000 -0400
++++ sdk/src/java/cyanogenmod/providers/CMSettings.java	2016-10-24 12:09:14.264780335 -0400
+@@ -2603,18 +2603,6 @@
+         public static final String QS_USE_MAIN_TILES = "sysui_qs_main_tiles";
+ 
+         /**
+-         * Global stats collection
+-         * @hide
+-         */
+-        public static final String STATS_COLLECTION = "stats_collection";
+-
+-        /**
+-         * Whether the global stats collection setting has been successfully reported to server
+-         * @hide
+-         */
+-        public static final String STATS_COLLECTION_REPORTED = "stats_collection_reported";
+-
+-        /**
+          * Whether newly installed apps should run with privacy guard by default
+          * @hide
+          */
+@@ -2864,7 +2852,6 @@
+                 CMSettings.Secure.DEV_FORCE_SHOW_NAVBAR,
+                 CMSettings.Secure.KEYBOARD_BRIGHTNESS,
+                 CMSettings.Secure.POWER_MENU_ACTIONS,
+-                CMSettings.Secure.STATS_COLLECTION,
+                 CMSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER,
+                 CMSettings.Secure.QS_TILES,
+                 CMSettings.Secure.QS_USE_MAIN_TILES,
