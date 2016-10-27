@@ -33,3 +33,17 @@ To apply all of the patches found within the /patches folder; you must copy the 
 NOTE: They should probably be applied in this order.
 
 ...For applying any of the other patchsets, I would review them - as I won't be giving any support on using them. So you should be familiar with patching AOSP, using "git am", "patch", "diff" and resolving merging conflicts, as the Cyamogenmod and AOSP source trees are moving targets and can break patches at any time.
+
+# no_analytics
+
+This folder contains patches to remove CMStats / Anomymous Statistics Reporting features from cm14. No reason to have it, when I'm not using a regular CM14 rom. *It also could be viewed as potential security concern / attack vector.
+
+the patch names indicate what folders that are to be applied to;
+
+* ../vendor/cm 
+* ../vendor/cmsdk
+* ../packages/apps/CMParts
+* ../packages/SetupWizard
+
+Thankfully, at this point CM hasn't added back analytics to dialer and contacts apps, like in cm13 && on top of that due to
+refactoring of the code, it's less of a pain to remove! ;-)
