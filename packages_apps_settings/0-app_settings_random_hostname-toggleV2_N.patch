@@ -1,0 +1,103 @@
+From baf7991679b2ce11c1324329ebf27ec6bdeba2e4 Mon Sep 17 00:00:00 2001
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Thu, 24 Mar 2016 21:46:53 -0400
+Subject: [PATCH] add setting for hostname randomization
+
+---
+ res/values/strings.xml                         |  4 ++++
+ res/xml/wireless_settings.xml                  |  6 ++++++
+ src/com/android/settings/WirelessSettings.java | 15 +++++++++++++++
+ 3 files changed, 25 insertions(+)
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index c5b2ea8..09b831c 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -7598,4 +7598,8 @@
+     <!-- randomize MAC addresses -->
+     <string name="randomize_mac_title">Randomize MAC addresses</string>
+     <string name="randomize_mac_summary">Assign random MAC addresses when network devices are enabled. MAC randomization is used during scanning whether or not this is enabled.</string>
++
++    <!-- randomize hostname -->
++    <string name="randomize_hostname_title">Randomize network hostname</string>
++    <string name="randomize_hostname_summary">Assign random network hostname on boot</string>
+ </resources>
+diff --git a/res/xml/wireless_settings.xml b/res/xml/wireless_settings.xml
+index 1263ddc..a623f61 100644
+--- a/res/xml/wireless_settings.xml
++++ b/res/xml/wireless_settings.xml
+@@ -27,6 +27,12 @@
+         android:persistent="false" />
+ 
+     <SwitchPreference
++        android:key="randomize_hostname"
++        android:title="@string/randomize_hostname_title"
++        android:summary="@string/randomize_hostname_summary"
++        android:persistent="false" />
++
++    <SwitchPreference
+         android:key="toggle_airplane"
+         android:title="@string/airplane_mode"
+         android:disableDependentsState="true" />
+diff --git a/src/com/android/settings/WirelessSettings.java b/src/com/android/settings/WirelessSettings.java
+index a30ae14..3a3e734 100644
+--- a/src/com/android/settings/WirelessSettings.java
++++ b/src/com/android/settings/WirelessSettings.java
+@@ -77,6 +77,7 @@
+     private static final boolean DEBUG = true;
+ 
+     private static final String KEY_RANDOMIZE_MAC = "randomize_mac";
++    private static final String KEY_RANDOMIZE_HOST = "randomize_hostname";
+     private static final String KEY_TOGGLE_AIRPLANE = "toggle_airplane";
+     private static final String KEY_TOGGLE_NFC = "toggle_nfc";
+     private static final String KEY_WIMAX_SETTINGS = "wimax_settings";
+@@ -94,11 +95,13 @@
+     private static final String WIFI_CALLING_PREFERRED = "preference";
+ 
+     private static final String RANDOMIZE_MAC_PERSIST_PROP = "persist.privacy.randomize_mac";
++    private static final String RANDOMIZE_HOST_PERSIST_PROP = "persist.privacy.randomize_host";
+ 
+     public static final String EXIT_ECM_RESULT = "exit_ecm_result";
+     public static final int REQUEST_CODE_EXIT_ECM = 1;
+ 
+     private SwitchPreference mRandomizeMac;
++    private SwitchPreference mRandomizeHost;
+ 
+     private AirplaneModeEnabler mAirplaneModeEnabler;
+     private SwitchPreference mAirplaneModePreference;
+@@ -356,9 +359,12 @@
+         if (!isAdmin) {
+             PreferenceScreen root = getPreferenceScreen();
+             root.removePreference(root.findPreference(KEY_RANDOMIZE_MAC));
++            root.removePreference(root.findPreference(KEY_RANDOMIZE_HOST));
+         } else {
+             mRandomizeMac = (SwitchPreference) findPreference(KEY_RANDOMIZE_MAC);
+             mRandomizeMac.setOnPreferenceChangeListener(this);
++            mRandomizeHost = (SwitchPreference) findPreference(KEY_RANDOMIZE_HOST);
++            mRandomizeHost.setOnPreferenceChangeListener(this);
+         }
+         mAirplaneModePreference = (SwitchPreference) findPreference(KEY_TOGGLE_AIRPLANE);
+         SwitchPreference nfc = (SwitchPreference) findPreference(KEY_TOGGLE_NFC);
+@@ -557,6 +563,10 @@
+             mRandomizeMac.setChecked(SystemProperties.getBoolean(RANDOMIZE_MAC_PERSIST_PROP, true));
+         }
+ 
++        if (mRandomizeHost != null) {
++            mRandomizeHost.setChecked(SystemProperties.getBoolean(RANDOMIZE_HOST_PERSIST_PROP, true));
++        }
++
+         mAirplaneModeEnabler.resume();
+         if (mNfcEnabler != null) {
+             mNfcEnabler.resume();
+@@ -592,6 +602,11 @@
+              return true;
+          }
+ 
++         if (preference == mRandomizeHost) {
++             SystemProperties.set(RANDOMIZE_HOST_PERSIST_PROP, (Boolean) newValue ? "1" : "0");
++             return true;
++         }
++
+          return false;
+      }
+ 
