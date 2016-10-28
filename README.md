@@ -4,6 +4,8 @@ This repository conatins patchwork that I use with Cyanogenmod 14 / Nougat. Most
 portions are derived from CopperheadOS - Features, such as; exec/fork spawning model, random mac address and
 other hardening / security focused functionality.
 
+EDIT: Currently, these can apply of cm-14.0, some will break on cm-14.1. I do have them working on cm-14.1, but they haven't been updated yet.
+
 Each folder name matches their corresponding folder in AOSP tree, where the patches are to be applied.
 
 however, there are a couple of noteable exceptions; 
