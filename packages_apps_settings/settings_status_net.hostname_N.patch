@@ -1,0 +1,75 @@
+diff -ur res/values/strings.xml res/values/strings.xml
+--- res/values/strings.xml	2016-10-27 19:53:23.567996000 -0400
++++ res/values/strings.xml	2016-10-27 16:07:28.237806000 -0400
+@@ -2344,6 +2344,8 @@
+     <string name="status_roaming">Roaming</string>
+     <!-- About phone, status item title. The cell carrier that the user is connected to.  -->
+     <string name="status_operator">Network</string>
++    <!-- About phone, status item title. The status of net.hostname. -->
++    <string name="status_hostname">Hostname</string>
+     <!-- About phone, status item title.  The MAC address of the Wi-Fi network adapter. -->
+     <string name="status_wifi_mac_address">Wi\u2011Fi MAC address</string>
+     <!-- About phone, status item title.  The bluetooth adapter's hardware address-->
+diff -ur res/xml/device_info_status.xml res/xml/device_info_status.xml
+--- res/xml/device_info_status.xml	2016-10-27 19:53:27.201393000 -0400
++++ res/xml/device_info_status.xml	2016-10-27 02:33:17.218748000 -0400
+@@ -41,6 +41,12 @@
+         <intent android:targetPackage="com.android.settings"
+             android:targetClass="com.android.settings.Settings$ImeiInformationActivity" />
+     </PreferenceScreen>
++    <com.android.settings.CopyablePreference android:key="hostname"
++        android:enabled="false"
++        android:shouldDisableView="false"
++        android:title="@string/status_hostname"
++        android:summary="@string/device_info_not_available"
++        android:persistent="false" />
+     <com.android.settings.CopyablePreference android:key="wifi_ip_address"
+         android:enabled="false"
+         android:shouldDisableView="false"
+diff -ur src/com/android/settings/deviceinfo/Status.java src/com/android/settings/deviceinfo/Status.java
+--- src/com/android/settings/deviceinfo/Status.java	2016-10-27 19:53:16.607873000 -0400
++++ src/com/android/settings/deviceinfo/Status.java	2016-10-27 19:57:58.606163069 -0400
+@@ -60,6 +60,7 @@
+     private static final String KEY_BATTERY_LEVEL = "battery_level";
+     private static final String KEY_IP_ADDRESS = "wifi_ip_address";
+     private static final String KEY_WIFI_MAC_ADDRESS = "wifi_mac_address";
++    private static final String KEY_HOSTNAME = "hostname";
+     private static final String KEY_BT_ADDRESS = "bt_address";
+     private static final String KEY_SERIAL_NUMBER = "serial_number";
+     private static final String KEY_WIMAX_MAC_ADDRESS = "wimax_mac_address";
+@@ -92,6 +93,7 @@
+     private Preference mBtAddress;
+     private Preference mIpAddress;
+     private Preference mWifiMacAddress;
++    private Preference mHostName;
+     private Preference mWimaxMacAddress;
+ 
+     private Handler mHandler;
+@@ -168,6 +170,7 @@
+         mBatteryStatus = findPreference(KEY_BATTERY_STATUS);
+         mBtAddress = findPreference(KEY_BT_ADDRESS);
+         mWifiMacAddress = findPreference(KEY_WIFI_MAC_ADDRESS);
++        mHostName = findPreference(KEY_HOSTNAME);
+         mWimaxMacAddress = findPreference(KEY_WIMAX_MAC_ADDRESS);
+         mIpAddress = findPreference(KEY_IP_ADDRESS);
+ 
+@@ -271,6 +274,11 @@
+              }
+     }
+ 
++    private void setHostNameStatus() {
++            String hostName = SystemProperties.get("net.hostname");
++            mHostName.setSummary(hostName);
++    }
++
+     private void setWimaxStatus() {
+         if (mWimaxMacAddress != null) {
+             String macAddress = SystemProperties.get("net.wimax.mac.address", mUnavailable);
+@@ -307,6 +315,7 @@
+     }
+ 
+     void updateConnectivity() {
++        setHostNameStatus();
+         setWimaxStatus();
+         setWifiStatus();
+         setBtStatus();
